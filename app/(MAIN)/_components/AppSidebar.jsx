@@ -31,18 +31,18 @@ const adminSideBarOptions = [
         icon: Users,
     },
     {
-        name: "Companies",
-        path: "/admin/companies",
+        name: "interviews",
+        path: "/admin/dashboard/interviews",
         icon: Building2,
     },
     {
-        name: "System Settings",
-        path: "/admin/settings",
+        name: "Job Descriptions",
+        path: "/admin/dashboard/job-descriptions",
         icon: Settings,
     },
     {
-        name: "Reports",
-        path: "/admin/reports",
+        name: "status",
+        path: "/admin/dashboard/status",
         icon: FileBarChart,
     },
 ];

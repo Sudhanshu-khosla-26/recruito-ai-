@@ -20,7 +20,7 @@ import axios from "axios";
 const ROLE_DASHBOARD_MAP = {
   admin: "/admin/dashboard",
   hadmin: "/hadmin/dashboard",
-  candidate: "/candidate/dashboard",
+  jobseeker: "/candidate/dashboard",
   hr: "/hr/dashboard",
 };
 

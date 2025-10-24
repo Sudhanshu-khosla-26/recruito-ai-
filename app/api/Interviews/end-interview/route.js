@@ -4,23 +4,38 @@ import { FieldValue } from "firebase-admin/firestore";
 
 export async function PATCH(request) {
     try {
-        //check the user giving interview is valid or not
-
         const { interviewId } = await request.json();
+
+        if (!interviewId) {
+            return NextResponse.json(
+                { message: "Interview ID is required" },
+                { status: 400 }
+            );
+        }
+
+        console.log(`🏁 Marking interview ${interviewId} as completed`);
 
         const payload = {
             ended_at: FieldValue.serverTimestamp(),
             status: "completed",
-        }
+
+        };
 
         const interviewRef = adminDB.collection("interviews").doc(interviewId);
-        console.log(interviewRef);
         await interviewRef.update(payload);
-        return NextResponse.json({ message: "Interview started successfully" }, { status: 200 });
+
+        console.log(`✅ Interview ${interviewId} marked as completed`);
+
+        return NextResponse.json({
+            success: true,
+            message: "Interview completed successfully"
+        }, { status: 200 });
 
     } catch (error) {
-        console.error("Error starting interview:", error);
-        return NextResponse.json({ message: "Error starting interview" }, { status: 500 });
+        console.error("❌ Error completing interview:", error);
+        return NextResponse.json({
+            message: "Error completing interview",
+            details: error.message
+        }, { status: 500 });
     }
-
 }

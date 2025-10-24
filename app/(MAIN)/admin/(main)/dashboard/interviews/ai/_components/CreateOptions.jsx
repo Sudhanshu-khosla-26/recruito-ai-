@@ -132,7 +132,7 @@ function CreateOptions() {
           {selectedJD && (
             <Link
               href={{
-                pathname: '/dashboard/analyse-resume',
+                pathname: '/admin/dashboard/analyse-resume',
                 query: {
                   jdId: selectedJD.id,
                   jdTitle: selectedJD.title
@@ -270,7 +270,7 @@ function CreateOptions() {
                     </label>
 
                     {selectedCandidates.includes(c.id) && (
-                      <Link href={`/dashboard/interviews/ai/create-interview?id=${selectedCandidates}&jobid=${selectedJD.id}`}>
+                      <Link href={`/admin/dashboard/interviews/ai/create-interview?id=${selectedCandidates}&jobid=${selectedJD.id}`}>
                         <button
                           type="button"
                           className="flex items-center gap-1 bg-blue-500 hover:bg-blue-600 text-white text-xs font-medium rounded px-2 py-1 transition-colors duration-200"

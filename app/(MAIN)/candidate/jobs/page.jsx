@@ -33,7 +33,7 @@ const JobsPage = () => {
     }
 
     const handleJobClick = (jobId) => {
-        router.push(`candidate-dashboard/${jobId}`);
+        router.push(`jobs/${jobId}`);
     }
 
     const handlePageChange = (newPage) => {
