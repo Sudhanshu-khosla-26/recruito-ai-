@@ -1,9 +1,7 @@
 "use client";
 
-import { Canvas, useFrame } from "@react-three/fiber";
-import { useGLTF } from "@react-three/drei";
+
 import { useEffect, useRef, useState, useCallback } from "react";
-import * as THREE from "three";
 import Vapi from "@vapi-ai/web";
 import { Loader2, Mic, MicOff, Video, VideoOff, Phone, Timer } from "lucide-react";
 import axios from "axios";
