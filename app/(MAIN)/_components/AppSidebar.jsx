@@ -32,8 +32,9 @@ const adminSideBarOptions = [
     },
     {
         name: "interviews",
-        path: "/admin/dashboard/interviews",
+        path: "/admin/dashboard/interviews/schedule",
         icon: Building2,
+
     },
     {
         name: "Job Descriptions",

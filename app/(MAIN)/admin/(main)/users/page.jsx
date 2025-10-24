@@ -15,12 +15,10 @@ const firebaseTimestampToDate = (timestamp) => {
 // Function to normalize role names for consistency
 const normalizeRole = (role) => {
     const roleMap = {
-        jobseeker: "candidate",
         Hhr: "Head Hr",
         Hr: "Hr",
         Hm: "Hm",
         Admin: "Admin",
-        HAdmin: "Head Admin",
     };
     return roleMap[role];
 };
@@ -38,6 +36,7 @@ const mapFirebaseUsersToComponent = (firebaseUsers) => {
         is_verified: user.is_verified || false,
     }));
 };
+
 
 
 export default function AdminUserManagement() {
@@ -67,7 +66,7 @@ export default function AdminUserManagement() {
             try {
                 setLoading(true);
                 setError(null);
-                const res = await axios.get("/api/HAdmin/get-all-users");
+                const res = await axios.get("/api/Admin/all-users");
                 console.log("API Response:", res.data);
 
                 if (res.data.users && Array.isArray(res.data.users)) {
@@ -139,7 +138,7 @@ export default function AdminUserManagement() {
 
     const handleDeleteUser = async () => {
         setLoading(true)
-        const res = await axios.delete(`/api/HAdmin/delete/user/${selectedUser.id}`);
+        const res = await axios.delete(`/api/admin/delete/user/${selectedUser.id}`);
         if (res.status === 200) {
             setUsers(users.filter((u) => u.id !== selectedUser.id));
         }
@@ -597,9 +596,10 @@ export default function AdminUserManagement() {
                                     }
                                     className="border border-gray-300 rounded px-3 py-2 w-full text-sm"
                                 >
-                                    <option value="HR">HR</option>
                                     <option value="Admin">Admin</option>
-                                    <option value="Head Admin">Head Admin</option>
+                                    <option value="Hhr">Head hr</option>
+                                    <option value="Hm">hm</option>
+                                    <option value="HR">HR</option>
                                 </select>
                             </div>
                         </div>
@@ -717,9 +717,12 @@ export default function AdminUserManagement() {
                                     }
                                     className="border border-gray-300 rounded px-3 py-2 w-full text-sm"
                                 >
-                                    <option value="Admin">Admin</option>
+                                    <option value="Admin">admin</option>
+                                    <option value="Hhr">hhr</option>
+                                    <option value="Hr">hr</option>
+                                    <option value="Hm">hm</option>
 
-                                    <option value="Head Admin">Head Admin</option>
+
 
                                 </select>
                             </div>

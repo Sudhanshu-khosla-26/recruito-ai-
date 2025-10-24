@@ -7,7 +7,7 @@ export async function DELETE(
     { params }
 ) {
     try {
-        const session = request.headers.get("cookie")?.split("session=")[1];
+        const session = request.cookies.get("session")?.value;
         if (!session) {
             return NextResponse.json({ error: "No session found" }, { status: 400 });
         }
