@@ -3,13 +3,16 @@
 import { useState, useEffect, useRef } from 'react'
 import axios from 'axios'
 import { useParams } from "next/navigation";
-import { X, Download, Mail, User, Phone, FileText } from 'lucide-react'
+import { X, Download, Mail, User, Phone, FileText, CheckCircle, Clock, AlertCircle } from 'lucide-react'
+import { toast } from 'sonner';
+
+
 
 const Page = () => {
     const { id } = useParams();
     const [resumefile, setresumefile] = useState(null);
     const [jobdescription, setjobdescription] = useState(null);
-    const [currentpage, setcurrentpage] = useState(0)
+    const [currentpage, setcurrentpage] = useState(0);
     const [isDragging, setIsDragging] = useState(false);
     const [IsAnalyzed, setIsAnalyzed] = useState(false);
     const [formData, setFormData] = useState({
@@ -45,7 +48,9 @@ const Page = () => {
             setIsAnalyzed(true);
         } catch (error) {
             console.error('Error analyzing resume:', error);
+            toast.error(error.response.data.error || 'Failed to analyze resume.');
         }
+
     }
 
     const nextpage = () => {
@@ -104,6 +109,8 @@ const Page = () => {
         try {
             const response = await axios.post('/api/Applications/create', {
                 job_id: jobdescription?.id,
+                jobposition: jobdescription?.title,
+                location: jobdescription?.location,
                 resume_url: formData.resume_url,
                 match_percentage: formData.match_percentage,
                 applicant_phone: formData.applicant_phone,
@@ -113,10 +120,11 @@ const Page = () => {
             });
             console.log('Application submitted successfully:', response.data);
             // toast.success('Application submitted successfully!');
-            alert('Application submitted successfully!');
+            toast.success('Application submitted successfully!')
+
         } catch (error) {
             console.error('Error submitting application:', error);
-            alert('Failed to submit application.');
+            toast.error('Failed to submit application.');
         }
     };
 
@@ -384,7 +392,92 @@ const Page = () => {
                     Submit Application
                 </button>
             </div>
+        </div>,
+        <div key="page3" className="flex flex-col h-full w-full">
+            <div className="flex flex-col h-full w-full  p-8">
+                {/* Main Container */}
+                <div className="flex flex-col items-center justify-center flex-1 max-w-2xl mx-auto w-full">
+
+                    {/* Success Icon */}
+                    <div className="mb-8 animate-bounce">
+                        <CheckCircle className="w-20 h-20 text-green-500" strokeWidth={1.5} />
+                    </div>
+
+                    {/* Heading */}
+                    <h1 className="text-4xl font-bold text-gray-800 mb-3 text-center">
+                        Application Submitted!
+                    </h1>
+
+                    <p className="text-lg text-gray-600 text-center mb-8">
+                        Thank you for applying. We've received your resume and it's under review.
+                    </p>
+
+                    {/* Main Message Card */}
+                    <div className="bg-white rounded-lg shadow-lg p-8 w-full mb-8 border-l-4 border-blue-500">
+                        <div className="flex items-start gap-4">
+                            <Clock className="w-6 h-6 text-blue-500 flex-shrink-0 mt-1" />
+                            <div>
+                                <h2 className="text-xl font-semibold text-gray-800 mb-2">
+                                    What Happens Next?
+                                </h2>
+                                <p className="text-gray-700 leading-relaxed">
+                                    Please wait <span className="font-semibold text-blue-600">1-2 days</span> for our HR team to review your application.
+                                    During this time, your AI interview will be scheduled or your application status will be updated.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Info Cards Grid */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 w-full mb-8">
+
+                        {/* Email Notification Card */}
+                        <div className="bg-white rounded-lg shadow p-6 border-t-2 border-indigo-500">
+                            <div className="flex items-center gap-3 mb-3">
+                                <Mail className="w-5 h-5 text-indigo-600" />
+                                <h3 className="font-semibold text-gray-800">Email Notification</h3>
+                            </div>
+                            <p className="text-sm text-gray-600">
+                                You'll receive an email with your interview schedule or next steps.
+                            </p>
+                        </div>
+
+                        {/* Timeline Card */}
+                        <div className="bg-white rounded-lg shadow p-6 border-t-2 border-green-500">
+                            <div className="flex items-center gap-3 mb-3">
+                                <Clock className="w-5 h-5 text-green-600" />
+                                <h3 className="font-semibold text-gray-800">Timeline</h3>
+                            </div>
+                            <p className="text-sm text-gray-600">
+                                1-2 days for review, then interview scheduling or status update.
+                            </p>
+                        </div>
+                    </div>
+
+                    {/* Tips Section */}
+                    <div className="bg-amber-50 border border-amber-200 rounded-lg p-6 w-full mb-8">
+                        <div className="flex items-start gap-3">
+                            <AlertCircle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
+                            <div>
+                                <h3 className="font-semibold text-amber-900 mb-2">While You Wait</h3>
+                                <ul className="text-sm text-amber-800 space-y-1">
+                                    <li>• Check your email (including spam folder) for updates</li>
+                                    <li>• Make sure your contact information is accurate</li>
+                                    <li>• Prepare for a potential AI interview on the scheduled date</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+
+
+                    {/* Footer Message */}
+                    <p className="text-center text-gray-500 text-sm mt-8">
+                        Have questions? Contact our support team at <span className="text-blue-600 font-medium">support@company.com</span>
+                    </p>
+                </div>
+            </div>
         </div>
+
     ];
 
     if (!jobdescription) {
@@ -403,9 +496,9 @@ const Page = () => {
     return (
         <div className='flex flex-col w-full h-full min-h-0 mt-3 px-2 md:px-4'>
             <div className="mb-3 md:mb-4">
-                <span className="text-orange-500 font-bold text-sm md:text-base">
+                {currentpage === 0 && <span className="text-orange-500 font-bold text-sm md:text-base">
                     Available Job Descriptions
-                </span>
+                </span>}
             </div>
             <div className='flex-1 min-h-0 flex flex-col'>
                 {pages[currentpage]}

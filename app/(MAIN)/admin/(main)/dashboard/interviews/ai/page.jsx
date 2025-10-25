@@ -3,7 +3,7 @@ import WelcomeContainer from './_components/WelcomeContainer'
 import CreateOptions from './_components/CreateOptions'
 import LatestInterviewsList from './_components/LatestInterviewsList'
 import Aiinterview from './_components/aiinterview'
- 
+
 function Dashboard() {
     return (
         <div>
@@ -15,5 +15,5 @@ function Dashboard() {
         </div>
     )
 }
- 
+
 export default Dashboard

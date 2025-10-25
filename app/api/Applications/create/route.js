@@ -28,7 +28,7 @@ export async function POST(request) {
             return NextResponse.json({ error: "User role is not valid" }, { status: 403 });
         }
 
-        const { job_id, resume_url, match_percentage, applicant_phone, analyzed_paramters, applicant_email, applicant_name } = await request.json();
+        const { job_id, resume_url, location, jobposition, match_percentage, applicant_phone, analyzed_paramters, applicant_email, applicant_name } = await request.json();
         if (!job_id || !resume_url || !match_percentage || !applicant_phone || !applicant_email || !applicant_name) {
             return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
         }
@@ -37,6 +37,8 @@ export async function POST(request) {
         const applicationData = {
             applicant_id: decodedUser.uid,
             job_id: job_id,
+            jobposition: jobposition,
+            location: location,
             resume_url: resume_url,
             match_percentage: match_percentage,
             applied_at: FieldValue.serverTimestamp(),

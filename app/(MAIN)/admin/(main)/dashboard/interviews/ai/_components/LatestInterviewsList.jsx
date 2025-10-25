@@ -59,7 +59,7 @@ function LatestInterviewsList() {
             setFilteredList(data);
         } catch (error) {
             console.error('Failed to fetch interviews:', error);
-            toast.error('Failed to fetch interviews');
+            // toast.error('Failed to fetch interviews');
         }
     };
 

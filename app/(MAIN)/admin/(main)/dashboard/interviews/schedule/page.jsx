@@ -96,15 +96,17 @@ export default function CandidateTable() {
     const firstValue = interviewSelections[selectedIds[0]];
     switch (firstValue) {
       case "Interview with AI":
-        router.push("/dashboard/interviews/ai");
+        router.push("/admin/dashboard/interviews/ai");
         break;
       case "Interview with HR":
+        router.push("/admin/dashboard/interviews/hr");
+        break;
       case "Interview with HM":
       case "Additional Round":
-        router.push("/dashboard/interviews/hm");
+        router.push("/admin/dashboard/interviews/hm");
         break;
       default:
-        router.push("/dashboard/interviews/Status");
+        router.push("/admin/dashboard/interviews/Status");
         break;
     }
   };
