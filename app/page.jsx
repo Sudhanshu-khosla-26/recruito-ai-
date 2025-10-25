@@ -4,13 +4,13 @@ import { Button } from "./components/ui/button";
 import { motion } from "framer-motion";
 import { useRouter } from "next/navigation";
 
-import HeroSection from "./components/landing/HeroSection.jsx";
-import FeaturesSection from "./components/landing/FeaturesSection.jsx";
-import ProductShowcase from "./components/landing/ProductShowcase.jsx";
+import HeroSection from "./components/landing/herosection.jsx";
+import FeaturesSection from "./components/landing/featuressection.jsx";
+import ProductShowcase from "./components/landing/productshowcase.jsx";
 import TestimonialsSection from "./components/landing/testimonialssection.jsx";
 import StatsSection from "./components/landing/statssection.jsx";
-import CTASection from "./components/landing/CTASection.jsx";
-import Footer from "./components/landing/Footer.jsx";
+import CTASection from "./components/landing/ctasection.jsx";
+import Footer from "./components/landing/footer.jsx";
 
 export default function Home() {
   const [isScrolled, setIsScrolled] = useState(false);
