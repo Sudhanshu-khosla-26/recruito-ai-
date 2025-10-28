@@ -90,46 +90,20 @@ const hrSideBarOptions = [
         icon: LayoutDashboardIcon,
     },
     {
+        name: "interviews",
+        path: "/hr/dashboard/interviews/schedule",
+        icon: Building2,
+
+    },
+    {
         name: "Job Descriptions",
-        path: "/hr/job-descriptions",
-        icon: FileText,
+        path: "/hr/dashboard/job-descriptions",
+        icon: Settings,
     },
     {
-        name: "Candidates",
-        path: "/hr/candidates",
-        icon: Users,
-    },
-    {
-        name: "Analyse Resume",
-        path: "/hr/analyse-resume",
-        icon: FileSearch,
-    },
-    {
-        name: "Interviews",
-        path: "/hr/interviews",
-        icon: Mic,
-        subButtons: [
-            {
-                name: "Schedule",
-                path: "/hr/interviews/schedule",
-                icon: Calendar,
-            },
-            {
-                name: "AI Bot",
-                path: "/hr/interviews/ai",
-                icon: GemIcon,
-            },
-            {
-                name: "Managers",
-                path: "/hr/interviews/hm",
-                icon: Briefcase,
-            },
-        ]
-    },
-    {
-        name: "Status",
-        path: "/hr/status",
-        icon: CheckCircle,
+        name: "status",
+        path: "/hr/dashboard/status",
+        icon: FileBarChart,
     },
 ];
 

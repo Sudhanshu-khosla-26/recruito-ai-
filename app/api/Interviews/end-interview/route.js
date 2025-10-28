@@ -4,7 +4,7 @@ import { FieldValue } from "firebase-admin/firestore";
 
 export async function PATCH(request) {
     try {
-        const { interviewId } = await request.json();
+        const { interviewId, score } = await request.json();
 
         if (!interviewId) {
             return NextResponse.json(
@@ -15,10 +15,11 @@ export async function PATCH(request) {
 
         console.log(`🏁 Marking interview ${interviewId} as completed`);
 
+        // Update the interview document
         const payload = {
             ended_at: FieldValue.serverTimestamp(),
             status: "completed",
-
+            overall_score: score,
         };
 
         const interviewRef = adminDB.collection("interviews").doc(interviewId);
@@ -26,9 +27,63 @@ export async function PATCH(request) {
 
         console.log(`✅ Interview ${interviewId} marked as completed`);
 
+        // Get the interview document to find the application_id
+        const interviewDoc = await interviewRef.get();
+        const interviewData = interviewDoc.data();
+
+        if (!interviewData || !interviewData.application_id) {
+            console.error("❌ No application_id found in interview document");
+            return NextResponse.json({
+                success: true,
+                message: "Interview completed but application not updated - no application_id found"
+            }, { status: 200 });
+        }
+
+        const applicationId = interviewData.application_id;
+        console.log(`🔍 Found application_id: ${applicationId}`);
+
+        // Update the application document
+        const applicationRef = adminDB.collection("applications").doc(applicationId);
+        const applicationDoc = await applicationRef.get();
+
+        if (!applicationDoc.exists) {
+            console.error("❌ Application document not found");
+            return NextResponse.json({
+                success: true,
+                message: "Interview completed but application not found"
+            }, { status: 200 });
+        }
+
+        const applicationData = applicationDoc.data();
+        const interviewsList = applicationData.interviews_list || [];
+
+        console.log(`📋 Current interviews_list:`, JSON.stringify(interviewsList));
+
+        // Update the specific interview in the list
+        const updatedList = interviewsList.map(interview => {
+            if (interview.id === interviewId) {
+                console.log(`✏️ Updating interview ${interviewId} status to completed`);
+                return {
+                    ...interview,
+                    status: "completed",
+                    overall_score: score,
+                    ended_at: new Date()
+                };
+            }
+            return interview;
+        });
+
+        console.log(`📋 Updated interviews_list:`, JSON.stringify(updatedList));
+
+        await applicationRef.update({ interviews_list: updatedList });
+
+        console.log(`✅ Application ${applicationId} updated successfully`);
+
         return NextResponse.json({
             success: true,
-            message: "Interview completed successfully"
+            message: "Interview completed successfully",
+            applicationId: applicationId,
+            interviewId: interviewId
         }, { status: 200 });
 
     } catch (error) {

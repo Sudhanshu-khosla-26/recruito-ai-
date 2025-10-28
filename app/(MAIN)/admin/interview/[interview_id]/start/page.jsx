@@ -362,8 +362,8 @@ ${formattedQuestions}
                             <Timer size={18} />
                             <TimerComponent start={vapiStatus === "connected"} />
                         </div>
-                        <span className={`px-3 py-1 rounded-full text-xs font-semibold ${statusInfo.className}`}>
-                            {statusInfo.text}
+                        <span className={`px-3 py-1 rounded-full text-xs font-semibold ${statusInfo?.className}`}>
+                            {statusInfo?.text}
                         </span>
                     </div>
                 </div>

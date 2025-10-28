@@ -75,9 +75,9 @@ function isSlotAvailable(slot, busySlots, bookedSlots) {
 
     const isFirebaseBooked = firebaseBookedInterviews.some(booked => {
         // Correctly handle Firestore Timestamps by converting them to moment objects
-        const bookedStart = moment(booked.started_at.toDate());
-        const bookedEnd = moment(booked.ended_at.toDate());
-        const bookedDate = moment(booked.scheduled_at.toDate());
+        const bookedStart = moment(booked.started_at?.toDate ? booked.started_at.toDate() : booked.started_at);
+        const bookedEnd = moment(booked.ended_at?.toDate ? booked.ended_at.toDate() : booked.ended_at);
+        const bookedDate = moment(booked.scheduled_at?.toDate ? booked.scheduled_at.toDate() : booked.scheduled_at);
 
         // Check for time overlap
         const hasTimeOverlap =

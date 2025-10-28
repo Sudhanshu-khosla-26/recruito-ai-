@@ -268,10 +268,11 @@ ${formattedQuestions}
                 questions: AllQuestions
             });
 
-            console.log("✅ Feedback generated:", feedback);
+            console.log("✅ Feedback generated:", feedback.data.stats.average_score);
 
             await axios.patch('/api/Interviews/end-interview', {
-                interviewId: interview_id
+                interviewId: interview_id,
+                score: feedback.data.stats.average_score
             });
 
             toast.success("Interview completed! Feedback saved.");
@@ -391,8 +392,8 @@ ${formattedQuestions}
                             <Timer size={18} />
                             <TimerComponent start={vapiStatus === "connected"} />
                         </div>
-                        <span className={`px-3 py-1 rounded-full text-xs font-semibold ${statusInfo.className}`}>
-                            {statusInfo.text}
+                        <span className={`px-3 py-1 rounded-full text-xs font-semibold ${statusInfo?.className}`}>
+                            {statusInfo?.text}
                         </span>
                     </div>
                 </div>

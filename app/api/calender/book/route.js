@@ -52,7 +52,9 @@ export async function POST(request) {
             }, { status: 400 });
         }
 
-        const applicationDoc = await adminDB.collection("applications").doc(application_id).get();
+
+        const applicationRef = adminDB.collection("applications").doc(application_id);
+        const applicationDoc = await applicationRef.get();
         if (!applicationDoc.exists) {
             return NextResponse.json({ error: "Application not found" }, { status: 404 });
         }
@@ -85,6 +87,8 @@ export async function POST(request) {
 
         try {
             const interviewerType = mode === "Whm" ? "Hiring Manager" : "HR";
+
+            // THIS IS THE KEY CHANGE - Add attendees and conferenceData
             const event = {
                 summary: `Interview: ${candidate_name || candidate_email} - ${jobData.title || 'Position'}`,
                 description: `
@@ -104,6 +108,20 @@ This interview is scheduled as part of the recruitment process.
                     dateTime: endTime,
                     timeZone: "Asia/Kolkata",
                 },
+                // ADD ATTENDEES
+                attendees: [
+                    { email: interviewer_email, responseStatus: 'needsAction' },
+                    { email: candidate_email, responseStatus: 'needsAction' }
+                ],
+                // ADD CONFERENCE DATA FOR GOOGLE MEET
+                conferenceData: {
+                    createRequest: {
+                        requestId: `interview-${Date.now()}-${Math.random().toString(36).substring(7)}`,
+                        conferenceSolutionKey: {
+                            type: 'hangoutsMeet'
+                        }
+                    }
+                },
                 reminders: {
                     useDefault: false,
                     overrides: [
@@ -116,18 +134,35 @@ This interview is scheduled as part of the recruitment process.
 
             const calendarId = "b572b11b331778a1264c46b2d1d5becd3f11352fa6742914aaffdaa2a4f85b56@group.calendar.google.com";
 
+            // IMPORTANT: Add conferenceDataVersion parameter
             const calendarResponse = await calendar.events.insert({
                 calendarId: calendarId,
                 requestBody: event,
-                sendUpdates: "none",
+                conferenceDataVersion: 1, // THIS IS CRITICAL FOR MEET LINK
+                sendUpdates: send_to === "both" ? "all" : send_to === "interviewer" ? "none" : "none",
             });
 
             googleEventId = calendarResponse.data.id;
+
+            // Extract the Google Meet link
+            if (calendarResponse.data.hangoutLink) {
+                finalMeetingLink = calendarResponse.data.hangoutLink;
+                console.log("Google Meet link created:", finalMeetingLink);
+            } else if (calendarResponse.data.conferenceData?.entryPoints) {
+                const meetEntry = calendarResponse.data.conferenceData.entryPoints.find(
+                    entry => entry.entryPointType === 'video'
+                );
+                if (meetEntry) {
+                    finalMeetingLink = meetEntry.uri;
+                }
+            }
+
             console.log("Event created:", calendarResponse.data.htmlLink);
             calendarSuccess = true;
 
         } catch (calendarError) {
             console.error("Google Calendar error:", calendarError);
+            console.error("Error details:", JSON.stringify(calendarError, null, 2));
         }
 
         const interviewData = {
@@ -139,6 +174,8 @@ This interview is scheduled as part of the recruitment process.
             start_time: startTimestamp,
             end_time: new Date(endTime),
             scheduled_at: startTimestamp,
+            started_at: startTimestamp,  // Add this for consistency with slots API
+            ended_at: new Date(endTime),  // Add this for consistency with slots API
             mode: mode,
             meeting_link: finalMeetingLink,
             google_event_id: googleEventId,
@@ -153,16 +190,21 @@ This interview is scheduled as part of the recruitment process.
 
         const docRef = await adminDB.collection("interviews").add(interviewData);
 
-        const applicationData = applicationDoc.data();
+
         await adminDB.collection("applications").doc(application_id).update({
             status: "interview_scheduled",
-            interviews_list: [...(applicationData.interviews_list || []), docRef.id],
-            updated_at: FieldValue.serverTimestamp()
+            interviews_list: [...((applicationDoc.data().interviews_list) || []), { id: docRef.id, mode: mode, status: "scheduled" }],
         });
+
+
 
         return NextResponse.json({
             success: true,
-            message: `Interview scheduled successfully. ${calendarSuccess ? "A Google Calendar event was created without a meeting link." : "Failed to create a Google Calendar event, but the interview is booked in the database."}`,
+            message: calendarSuccess
+                ? (finalMeetingLink
+                    ? "Interview scheduled successfully with Google Meet link!"
+                    : "Interview scheduled successfully. Calendar event created but Meet link generation failed.")
+                : "Failed to create a Google Calendar event, but the interview is booked in the database.",
             interview_id: docRef.id,
             google_event_id: googleEventId,
             meeting_link: finalMeetingLink,

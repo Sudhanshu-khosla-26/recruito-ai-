@@ -34,7 +34,7 @@ export async function POST(request) {
         const body = await request.json();
         console.log("[debug] request body:", body);
 
-        const { job_id, application_id, mode, interview_type, duration_minutes } = body || {};
+        const { job_id, application_id, mode, interview_type, duration_minutes, candidate_email } = body || {};
         if (!job_id || !application_id) {
             console.warn("[interviews.create] missing required fields:", { job_id, application_id });
             return NextResponse.json({ error: "Missing required fields 'job_id' or 'application_id'", bodyReceived: body }, { status: 400 });
@@ -62,11 +62,12 @@ export async function POST(request) {
             job_id,
             application_id,
             candidate_id: body.candidate_id || null,
-            mode: mode || "HR",
+            mode: mode,
             interview_type: interview_type || [],
             created_at: FieldValue.serverTimestamp(),
             duration_minutes: duration_minutes || null,
             status: "scheduled",
+            candidate_email: candidate_email || null
         };
 
         console.log("[debug] interview payload:", interviewPayload);
@@ -77,7 +78,7 @@ export async function POST(request) {
         if (applicationRed.exists) {
             await adminDB.collection("applications").doc(application_id).update({
                 status: "interview_scheduled",
-                interviews_list: [...((applicationRed.data().interviews_list) || []), docRef.id],
+                interviews_list: [...((applicationRed.data().interviews_list) || []), { id: docRef.id, mode: mode, status: "scheduled" }],
             });
         }
 
