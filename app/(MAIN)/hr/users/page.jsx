@@ -14,13 +14,18 @@ const firebaseTimestampToDate = (timestamp) => {
 
 // Function to normalize role names for consistency
 const normalizeRole = (role) => {
+    if (!role) return "Unknown";
+
     const roleMap = {
-        Hhr: "Head Hr",
-        Hr: "Hr",
-        Hm: "Hm",
-        Admin: "Admin",
+        hhr: "Head HR",
+        hr: "HR",
+        hm: "HM",
+        admin: "Admin",
+        hadmin: "Head Admin",
+        jobseeker: "Candidate",
     };
-    return roleMap[role];
+
+    return roleMap[role.toLowerCase()] || role;
 };
 
 // Main mapping function
@@ -157,6 +162,9 @@ export default function AdminUserManagement() {
         );
     };
 
+
+    console.log("user", users)
+
     const filteredUsers = users.filter((user) => {
         const matchStatus = statusFilter === "all" || user.status === statusFilter;
         const matchRole = roleFilter === "all" || user.role === roleFilter;
@@ -271,10 +279,10 @@ export default function AdminUserManagement() {
                                 <option value="all">All Roles</option>
                                 <option value="Head Admin">Head Admin</option>
                                 <option value="Admin">Admin</option>
-                                <option value="Head Hr">Head Hr</option>
-                                <option value="Hm">Hm</option>
+                                <option value="Head HR">Head HR</option>
+                                <option value="HM">HM</option>
                                 <option value="HR">HR</option>
-                                <option value="candidate">candidate</option>
+                                <option value="Candidate">Candidate</option>
                             </select>
                         </div>
 

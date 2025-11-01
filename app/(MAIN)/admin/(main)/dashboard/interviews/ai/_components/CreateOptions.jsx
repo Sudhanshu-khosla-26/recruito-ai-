@@ -259,7 +259,7 @@ function CreateOptions() {
                     <label className="flex items-center gap-2 cursor-pointer">
                       <input
                         type="checkbox"
-                        checked={selectedCandidates.includes(c.id)}
+                        checked={selectedCandidates?.id === c.id}
                         onChange={() => toggleCandidate(c.id, c.applicant_email)}
                         className="h-4 w-4 text-blue-600 rounded"
                       />
@@ -269,7 +269,7 @@ function CreateOptions() {
                       </div>
                     </label>
 
-                    {selectedCandidates.includes(c.id) && (
+                    {selectedCandidates?.id === c.id && (
                       <Link href={`/admin/dashboard/interviews/ai/create-interview?id=${selectedCandidates.id}&jobid=${selectedJD.id}&emailid=${selectedCandidates.email}`}>
                         <button
                           type="button"

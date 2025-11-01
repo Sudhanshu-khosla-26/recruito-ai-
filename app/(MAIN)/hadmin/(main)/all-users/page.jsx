@@ -14,17 +14,19 @@ const firebaseTimestampToDate = (timestamp) => {
 
 // Function to normalize role names for consistency
 const normalizeRole = (role) => {
-    const roleMap = {
-        jobseeker: "candidate",
-        Hhr: "Head Hr",
-        Hr: "Hr",
-        Hm: "Hm",
-        Admin: "Admin",
-        HAdmin: "Head Admin",
-    };
-    return roleMap[role];
-};
+    if (!role) return "Unknown";
 
+    const roleMap = {
+        hhr: "Head HR",
+        hr: "HR",
+        hm: "HM",
+        admin: "Admin",
+        hadmin: "Head Admin",
+        jobseeker: "Candidate",
+    };
+
+    return roleMap[role.toLowerCase()] || role;
+};
 // Main mapping function
 const mapFirebaseUsersToComponent = (firebaseUsers) => {
     return firebaseUsers.map((user) => ({
@@ -42,6 +44,7 @@ const mapFirebaseUsersToComponent = (firebaseUsers) => {
 
 export default function AdminUserManagement() {
     const [users, setUsers] = useState([]);
+    const [companies, setCompanies] = useState([]);
     const [showCreateModal, setShowCreateModal] = useState(false);
     const [showEditModal, setShowEditModal] = useState(false);
     const [selectedUser, setSelectedUser] = useState(null);
@@ -55,11 +58,14 @@ export default function AdminUserManagement() {
     const [roleFilter, setRoleFilter] = useState("all");
     const [searchQuery, setSearchQuery] = useState("");
 
+
+
     // Form state
     const [formData, setFormData] = useState({
         name: "",
         email: "",
         role: "HR",
+        company: "",
     });
 
     useEffect(() => {
@@ -86,46 +92,80 @@ export default function AdminUserManagement() {
                 setLoading(false);
             }
         };
+        const fetchCompanies = async () => {
+            try {
+                const res = await axios.get("/api/HAdmin/get-all-company"); // Your companies endpoint
+                console.log("Companies API Response:", res.data);
+                setCompanies(res.data.companies || []);
+            } catch (error) {
+                console.error("Error fetching companies:", error);
+            }
+        };
         getalluser();
+        fetchCompanies();
     }, []);
 
-    const handleCreateUser = () => {
+    const handleCreateUser = async () => {
         if (!formData.name || !formData.email) {
             alert("Please fill in all fields");
+            return;
+        }
+
+        if ((formData.role === "Admin") && !formData.company) {
+            alert("Please select a company for Admin roles");
             return;
         }
 
         const newUser = {
-            id: users.length > 0 ? Math.max(...users.map(u => typeof u.id === 'number' ? u.id : 0)) + 1 : 1,
             name: formData.name,
             email: formData.email,
             role: formData.role,
             status: "active",
-            createdAt: new Date().toISOString().split("T")[0],
+            company_id: formData.company
         };
 
-        setUsers([...users, newUser]);
-        setFormData({ name: "", email: "", role: "HR" });
+        const res = await axios.post("/api/HAdmin/create-user", newUser)
+
+        console.log(res)
+
+
+        setFormData({ name: "", email: "", role: "HR", });
         setShowCreateModal(false);
     };
 
-    const handleEditUser = () => {
-        if (!formData.name || !formData.email) {
+    const handleEditUser = async () => {
+        if (!formData.name || !formData.email || !formData.role) {
             alert("Please fill in all fields");
             return;
         }
 
-        setUsers(
-            users.map((u) =>
-                u.id === selectedUser.id
-                    ? { ...u, name: formData.name, email: formData.email, role: formData.role }
-                    : u
-            )
-        );
-        setFormData({ name: "", email: "", role: "HR" });
-        setShowEditModal(false);
-        setSelectedUser(null);
+        if (formData.role === "Admin" && !formData.company) {
+            alert("Please select a company for Admin roles");
+            return;
+        }
+
+        try {
+            const updateData = {
+                id: selectedUser.id,
+                role: formData.role,
+                company_id: formData.role === "Admin" ? formData.company : null,
+            };
+
+            const res = await axios.patch("/api/HAdmin/update-user", updateData);
+            console.log(res);
+
+            // Update local state
+
+
+            setFormData({ name: "", email: "", role: "HR", company: "" });
+            setShowEditModal(false);
+            setSelectedUser(null);
+        } catch (error) {
+            console.error("Error updating user:", error);
+            alert("Failed to update user");
+        }
     };
+
 
     const openEditModal = (user) => {
         setSelectedUser(user);
@@ -133,6 +173,7 @@ export default function AdminUserManagement() {
             name: user.name,
             email: user.email,
             role: user.role,
+            company: user.company || "",
         });
         setShowEditModal(true);
     };
@@ -148,14 +189,26 @@ export default function AdminUserManagement() {
         setLoading(false)
     };
 
-    const handleToggleStatus = (user) => {
-        setUsers(
-            users.map((u) =>
-                u.id === user.id
-                    ? { ...u, status: u.status === "active" ? "suspended" : "active" }
-                    : u
-            )
-        );
+    const handleToggleStatus = async (user) => {
+        try {
+            const newStatus = user.status === "active" ? "suspended" : "active";
+
+            const res = await axios.patch("/api/HAdmin/update-user", {
+                id: user.id,
+                status: newStatus,
+            });
+
+            if (res.status === 200) {
+                setUsers(
+                    users.map((u) =>
+                        u.id === user.id ? { ...u, status: newStatus } : u
+                    )
+                );
+            }
+        } catch (error) {
+            console.error("Error toggling status:", error);
+            alert("Failed to update user status");
+        }
     };
 
     const filteredUsers = users.filter((user) => {
@@ -272,10 +325,10 @@ export default function AdminUserManagement() {
                                 <option value="all">All Roles</option>
                                 <option value="Head Admin">Head Admin</option>
                                 <option value="Admin">Admin</option>
-                                <option value="Head Hr">Head Hr</option>
-                                <option value="Hm">Hm</option>
+                                <option value="Head HR">Head HR</option>
+                                <option value="HM">HM</option>
                                 <option value="HR">HR</option>
-                                <option value="candidate">candidate</option>
+                                <option value="Candidate">Candidate</option>
                             </select>
                         </div>
 
@@ -543,7 +596,7 @@ export default function AdminUserManagement() {
 
             {/* Create User Modal */}
             {showCreateModal && (
-                <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50 p-4">
+                <div className="fixed inset-0 bg-black/40 bg-opacity-40 flex items-center justify-center z-50 p-4">
                     <div className="bg-white rounded-lg p-4 sm:p-6 w-full max-w-md shadow-lg relative">
                         <button
                             onClick={() => setShowCreateModal(false)}
@@ -597,11 +650,35 @@ export default function AdminUserManagement() {
                                     }
                                     className="border border-gray-300 rounded px-3 py-2 w-full text-sm"
                                 >
-                                    <option value="HR">HR</option>
+                                    <option value="">Select Role</option>
                                     <option value="Admin">Admin</option>
                                     <option value="Head Admin">Head Admin</option>
                                 </select>
                             </div>
+
+                            {/* Add this new div for company selection */}
+                            {(formData.role === "Admin") && (
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                                        Company
+                                    </label>
+                                    <select
+                                        value={formData.company}
+                                        onChange={(e) =>
+                                            setFormData({ ...formData, company: e.target.value })
+                                        }
+                                        className="border border-gray-300 rounded px-3 py-2 w-full text-sm"
+                                        required
+                                    >
+                                        <option value="">Select Company</option>
+                                        {companies.map((company) => (
+                                            <option key={company.id} value={company.id}>
+                                                {company.company_name}
+                                            </option>
+                                        ))}
+                                    </select>
+                                </div>
+                            )}
                         </div>
 
                         <div className="flex flex-col sm:flex-row gap-3 mt-6">
@@ -657,13 +734,13 @@ export default function AdminUserManagement() {
 
             {/* Edit User Modal */}
             {showEditModal && selectedUser && (
-                <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50 p-4">
+                <div className="fixed inset-0 bg-black/40 bg-opacity-40 flex items-center justify-center z-50 p-4">
                     <div className="bg-white rounded-lg p-4 sm:p-6 w-full max-w-md shadow-lg relative">
                         <button
                             onClick={() => {
                                 setShowEditModal(false);
                                 setSelectedUser(null);
-                                setFormData({ name: "", email: "", role: "HR" });
+                                setFormData({ name: "", email: "", role: "", company: "" });
                             }}
                             className="absolute top-3 right-3 text-gray-400 hover:text-gray-600 text-xl"
                         >
@@ -717,12 +794,35 @@ export default function AdminUserManagement() {
                                     }
                                     className="border border-gray-300 rounded px-3 py-2 w-full text-sm"
                                 >
+                                    <option value="">Select Role</option>
                                     <option value="Admin">Admin</option>
-
                                     <option value="Head Admin">Head Admin</option>
-
                                 </select>
                             </div>
+
+                            {/* Add this new div for company selection */}
+                            {(formData.role === "Admin") && (
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                                        Company
+                                    </label>
+                                    <select
+                                        value={formData.company}
+                                        onChange={(e) =>
+                                            setFormData({ ...formData, company: e.target.value })
+                                        }
+                                        className="border border-gray-300 rounded px-3 py-2 w-full text-sm"
+                                        required
+                                    >
+                                        <option value="">Select Company</option>
+                                        {companies.map((company) => (
+                                            <option key={company.id} value={company.id}>
+                                                {company.company_name}
+                                            </option>
+                                        ))}
+                                    </select>
+                                </div>
+                            )}
                         </div>
 
                         <div className="flex flex-col sm:flex-row gap-3 mt-6">
@@ -730,7 +830,7 @@ export default function AdminUserManagement() {
                                 onClick={() => {
                                     setShowEditModal(false);
                                     setSelectedUser(null);
-                                    setFormData({ name: "", email: "", role: "HR" });
+                                    setFormData({ name: "", email: "", role: "", company: "" });
                                 }}
                                 className="flex-1 px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-800 rounded text-sm font-medium"
                             >

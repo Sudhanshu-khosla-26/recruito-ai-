@@ -12,13 +12,15 @@ const firebaseTimestampToDate = (timestamp) => {
     return date.toISOString().split("T")[0];
 };
 
-// Function to normalize role names for consistency
+
 const normalizeRole = (role) => {
     const roleMap = {
-        Hhr: "Head Hr",
-        Hr: "Hr",
-        Hm: "Hm",
+        HHR: "Head HR",
+        HR: "HR",
+        HM: "HM",
         Admin: "Admin",
+        HAdmin: "Head Admin",
+        jobseeker: "Candidate",
     };
     return roleMap[role];
 };
@@ -269,12 +271,12 @@ export default function AdminUserManagement() {
                                 className="border border-gray-300 rounded px-3 py-2 w-full text-xs"
                             >
                                 <option value="all">All Roles</option>
-                                <option value="Head Admin">Head Admin</option>
+                                <option value="HAdmin">Head Admin</option>
                                 <option value="Admin">Admin</option>
-                                <option value="Head Hr">Head Hr</option>
-                                <option value="Hm">Hm</option>
+                                <option value="HHR">Head HR</option>
+                                <option value="HM">HM</option>
                                 <option value="HR">HR</option>
-                                <option value="candidate">candidate</option>
+                                <option value="candidate">Candidate</option>
                             </select>
                         </div>
 
@@ -597,8 +599,8 @@ export default function AdminUserManagement() {
                                     className="border border-gray-300 rounded px-3 py-2 w-full text-sm"
                                 >
                                     <option value="Admin">Admin</option>
-                                    <option value="Hhr">Head hr</option>
-                                    <option value="Hm">hm</option>
+                                    <option value="HHR">Head HR</option>
+                                    <option value="HM">HM</option>
                                     <option value="HR">HR</option>
                                 </select>
                             </div>

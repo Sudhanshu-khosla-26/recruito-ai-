@@ -539,9 +539,9 @@ function App() {
                                                     ].join("\n\n")}
                                             </p>
                                         </div>
-                                        <Button variant="solid" size="sm" className="mt-2" onClick={handleApply}>
+                                        {/* <Button variant="solid" size="sm" className="mt-2" onClick={handleApply}>
                                             Apply Now
-                                        </Button>
+                                        </Button> */}
                                     </div>
                                 )}
                             </>
