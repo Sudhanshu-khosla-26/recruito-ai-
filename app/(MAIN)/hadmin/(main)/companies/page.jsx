@@ -5,7 +5,9 @@ import { useMemo, useState, useEffect } from "react"
 import { Building2, ChevronLeft, ChevronRight, Search, Plus } from "lucide-react"
 import { CompanyCreateDialog } from "./_components/company-create-dialog"
 import { CompanyDetail } from "./_components/company-detail"
+import { CompanyEditDialog } from "./_components/company-edit-dialog"
 import axios from "axios"
+import { toast } from "sonner"
 
 // --- Helper Components (Input, Button) remain the same ---
 function Input(props) {
@@ -61,6 +63,55 @@ export default function CompaniesPage() {
     // Dialog and Loading State
     const [openCreate, setOpenCreate] = useState(false)
     const [isCreating, setIsCreating] = useState(false) // To handle loading state
+    const [openEdit, setOpenEdit] = useState(false)
+    const [editingCompany, setEditingCompany] = useState(null)
+
+    // Add edit handler:
+    const handleEditCompany = (company) => {
+        setEditingCompany(company)
+        setOpenEdit(true)
+    }
+
+    // Add update handler:
+    const handleUpdateCompany = async (companyId, formData) => {
+        try {
+            const response = await axios.put(`/api/company/${companyId}`, formData)
+
+            if (response.status === 200) {
+                toast.success("Company updated successfully!")
+                setOpenEdit(false)
+                setEditingCompany(null)
+                await getallCompany()
+            }
+        } catch (error) {
+            console.error("Error updating company:", error.response?.data || error)
+            const errorMessage = error.response?.data?.details || "An unexpected error occurred."
+            alert(`Failed to update company: ${errorMessage}`)
+        }
+    }
+
+    // Add delete handler:
+    const handleDeleteCompany = async (companyId) => {
+        if (!confirm("Are you sure you want to delete this company? This action cannot be undone.")) {
+            return
+        }
+
+        try {
+            const response = await axios.delete(`/api/company/${companyId}`)
+
+            if (response.status === 200) {
+                alert("Company deleted successfully!")
+                if (selectedCompanyId === companyId) {
+                    setSelectedCompanyId(null)
+                }
+                await getallCompany()
+            }
+        } catch (error) {
+            console.error("Error deleting company:", error.response?.data || error)
+            const errorMessage = error.response?.data?.details || "An unexpected error occurred."
+            alert(`Failed to delete company: ${errorMessage}`)
+        }
+    }
 
     const getallCompany = async () => {
         try {
@@ -279,7 +330,9 @@ export default function CompaniesPage() {
                     {/* Right: Details */}
                     <div className="bg-card border rounded-xl p-5">
                         {selectedCompanyId ? (
-                            <CompanyDetail company={companies.find((c) => c.id === selectedCompanyId)} />
+                            <CompanyDetail company={companies.find((c) => c.id === selectedCompanyId)}
+                                onEdit={handleEditCompany}
+                                onDelete={handleDeleteCompany} />
                         ) : (
                             <div className="h-full w-full flex items-center justify-center">
                                 <p className="text-xs text-muted-foreground text-center">
@@ -294,6 +347,15 @@ export default function CompaniesPage() {
             {/* Create Company Modal */}
             {openCreate && (
                 <CompanyCreateDialog open={openCreate} onOpenChange={setOpenCreate} onCreate={handleCreateCompany} />
+            )}
+
+            {openEdit && (
+                <CompanyEditDialog
+                    open={openEdit}
+                    onOpenChange={setOpenEdit}
+                    onUpdate={handleUpdateCompany}
+                    company={editingCompany}
+                />
             )}
         </div>
     )

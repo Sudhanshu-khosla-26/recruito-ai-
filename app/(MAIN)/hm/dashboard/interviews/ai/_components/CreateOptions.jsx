@@ -1,56 +1,48 @@
-"use client";
-import { Video, ChevronDown, X, FileSearch } from "lucide-react";
-import Link from "next/link";
-import React, { useState, useRef, useEffect } from "react";
-import axios from "axios";
-import { useSearchParams } from "next/navigation";
+"use client"
+import { Video, ChevronDown, X, FileSearch } from 'lucide-react'
+import Link from 'next/link'
+import React, { useState, useRef, useEffect } from 'react'
+import axios from 'axios'
 
 function CreateOptions() {
-  const searchParams = useSearchParams();
-  const jdTitle = searchParams.get("jd");
-  const [jdList, setJdList] = useState([]);
-  const [selectedJD, setSelectedJD] = useState(null);
-  console.log("selectjd", selectedJD);
-  const [jdSearch, setJdSearch] = useState("");
-  const [candidateSearch, setCandidateSearch] = useState("");
+  const [jdList, setJdList] = useState([])
+  const [selectedJD, setSelectedJD] = useState(null)
+  console.log("selectjd", selectedJD)
+  const [jdSearch, setJdSearch] = useState("")
+  const [candidateSearch, setCandidateSearch] = useState("")
 
   // State to hold candidates from the API
   const [candidateList, setCandidateList] = useState([]);
 
-  const [selectedCandidates, setSelectedCandidates] = useState(null);
-  console.log(selectedCandidates, "selected");
-  const [page, setPage] = useState(1);
-  const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [selectedCandidates, setSelectedCandidates] = useState(null)
+  console.log(selectedCandidates, "selected")
+  const [page, setPage] = useState(1)
+  const [dropdownOpen, setDropdownOpen] = useState(false)
 
   // Separate loading states for JDs and Candidates
-  const [jdLoading, setJdLoading] = useState(true);
-  const [candidatesLoading, setCandidatesLoading] = useState(false);
+  const [jdLoading, setJdLoading] = useState(true)
+  const [candidatesLoading, setCandidatesLoading] = useState(false)
 
-  const perPage = 5;
-  const dropdownRef = useRef(null);
+  const perPage = 5
+  const dropdownRef = useRef(null)
 
   // Fetch JDs on component mount
   useEffect(() => {
     const fetchJD = async () => {
       try {
-        setJdLoading(true);
-        const res = await axios.get("/api/job/get-all-jd");
-        console.log("Fetched JDs:", res.data.jobs);
-        setJdList(res.data.jobs || []);
-        if (jdTitle) {
-          console.log("jdTitle", jdTitle);
-          const jd = res.data.jobs.find((jd) => jd.title === jdTitle);
-          setSelectedJD(jd);
-        }
+        setJdLoading(true)
+        const res = await axios.get('/api/job/get-all-jd')
+        console.log("Fetched JDs:", res.data.jobs)
+        setJdList(res.data.jobs || [])
       } catch (err) {
-        console.error("Failed to fetch JDs:", err);
-        setJdList([]);
+        console.error("Failed to fetch JDs:", err)
+        setJdList([])
       } finally {
-        setJdLoading(false);
+        setJdLoading(false)
       }
-    };
-    fetchJD();
-  }, []);
+    }
+    fetchJD()
+  }, [])
 
   // Fetch candidates whenever a JD is selected
   useEffect(() => {
@@ -62,9 +54,7 @@ function CreateOptions() {
       }
       try {
         setCandidatesLoading(true);
-        const res = await axios.get(
-          `/api/Applications/get-all-applications?jobid=${selectedJD.id}`
-        );
+        const res = await axios.get(`/api/Applications/get-all-applications?jobid=${selectedJD.id}`);
         console.log("Fetched candidates:", res.data.applications);
         setCandidateList(res.data.applications || []);
       } catch (error) {
@@ -73,88 +63,80 @@ function CreateOptions() {
       } finally {
         setCandidatesLoading(false);
       }
-    };
+    }
 
     getCandidates();
-  }, [selectedJD]);
+  }, [selectedJD])
 
   // Close dropdown if clicked outside
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
-        setDropdownOpen(false);
+        setDropdownOpen(false)
       }
-    };
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
 
   // Filter JD list based on search
-  const filteredJDs = jdList.filter(
-    (jd) =>
-      jd.title?.toLowerCase().includes(jdSearch.toLowerCase()) ||
-      jd.location?.toLowerCase().includes(jdSearch.toLowerCase()),
-  );
+  const filteredJDs = jdList.filter(jd =>
+    jd.title?.toLowerCase().includes(jdSearch.toLowerCase()) ||
+    jd.location?.toLowerCase().includes(jdSearch.toLowerCase())
+  )
 
   // Filter candidates from the state based on search
-  const filteredCandidates = candidateList.filter((c) =>
-    c.applicant_name.toLowerCase().includes(candidateSearch.toLowerCase()),
-  );
+  const filteredCandidates = candidateList.filter(
+    (c) => c.applicant_name.toLowerCase().includes(candidateSearch.toLowerCase())
+  )
 
-  const totalPages = Math.ceil(filteredCandidates.length / perPage);
-  const startIndex = (page - 1) * perPage;
-  const paginatedCandidates = filteredCandidates.slice(
-    startIndex,
-    startIndex + perPage,
-  );
+  const totalPages = Math.ceil(filteredCandidates.length / perPage)
+  const startIndex = (page - 1) * perPage
+  const paginatedCandidates = filteredCandidates.slice(startIndex, startIndex + perPage)
 
   const toggleCandidate = (id, email) => {
     // setSelectedCandidates((prev) =>
     //   prev.includes(id) ? prev.filter((c) => c !== id) : [...prev, id]
     // )
-    setSelectedCandidates({ id, email });
-  };
+    setSelectedCandidates({ id, email })
+  }
 
   // Reset functions
   const resetCandidateSearch = () => {
-    setCandidateSearch("");
-    setPage(1);
-  };
+    setCandidateSearch("")
+    setPage(1)
+  }
 
   const handleJDSelect = (jd) => {
-    setSelectedJD(jd);
-    setDropdownOpen(false);
-    setJdSearch(jd.title);
-    setPage(1); // Reset pagination on new JD selection
-    setCandidateSearch(""); // Reset candidate search on new JD
-    setSelectedCandidates([]); // Clear selected candidates on new JD
-  };
+    setSelectedJD(jd)
+    setDropdownOpen(false)
+    setJdSearch(jd.title)
+    setPage(1) // Reset pagination on new JD selection
+    setCandidateSearch("") // Reset candidate search on new JD
+    setSelectedCandidates([]) // Clear selected candidates on new JD
+  }
 
   // Helper function to format the Firestore timestamp
   const formatDate = (timestamp) => {
-    if (!timestamp || !timestamp._seconds) return "N/A";
-    return new Date(timestamp._seconds * 1000).toLocaleDateString("en-CA"); // 'en-CA' gives YYYY-MM-DD format
+    if (!timestamp || !timestamp._seconds) return 'N/A';
+    return new Date(timestamp._seconds * 1000).toLocaleDateString('en-CA'); // 'en-CA' gives YYYY-MM-DD format
   };
+
 
   return (
     <div className="flex flex-col gap-6">
       {/* JD Selection */}
-      <div
-        className="bg-white w-full border border-gray-200 rounded-lg p-4 relative"
-        ref={dropdownRef}
-      >
+      <div className="bg-white w-full border border-gray-200 rounded-lg p-4 relative" ref={dropdownRef}>
         <div className="flex justify-between items-start mb-2">
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Select JD
-          </label>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Select JD</label>
           {selectedJD && (
             <Link
               href={{
-                pathname: "/admin/dashboard/analyse-resume",
+                pathname: '/admin/dashboard/analyse-resume',
                 query: {
                   jdId: selectedJD.id,
-                  jdTitle: selectedJD.title,
-                },
+                  jdTitle: selectedJD.title
+                }
               }}
             >
               <button
@@ -176,9 +158,7 @@ function CreateOptions() {
             {selectedJD ? (
               <span>
                 <span className="font-medium">{selectedJD.title}</span>
-                <span className="text-gray-500 text-xs ml-2">
-                  • {selectedJD.location}
-                </span>
+                <span className="text-gray-500 text-xs ml-2">• {selectedJD.location}</span>
               </span>
             ) : (
               "-- Select JD --"
@@ -202,8 +182,8 @@ function CreateOptions() {
                 <X
                   className="h-4 w-4 text-gray-500 cursor-pointer mr-2 flex-shrink-0"
                   onClick={(e) => {
-                    e.stopPropagation();
-                    setJdSearch("");
+                    e.stopPropagation()
+                    setJdSearch("")
                   }}
                 />
               )}
@@ -221,20 +201,15 @@ function CreateOptions() {
                     className="px-3 py-3 text-sm cursor-pointer hover:bg-gray-100 border-b border-gray-100 last:border-b-0"
                     onClick={() => handleJDSelect(jd)}
                   >
-                    <div className="font-medium text-gray-800 flex items-center">
-                      {jd.title}
-                      <span className="text-xs text-gray-500 ml-2">
-                        📍 {jd.location}
-                      </span>
+                    <div className="font-medium text-gray-800 flex items-center">{jd.title}
+                      <span className='text-xs text-gray-500 ml-2'>📍 {jd.location}</span>
                     </div>
                   </div>
                 ))}
               </div>
             ) : (
               <div className="px-3 py-8 text-sm text-gray-500 text-center">
-                {jdSearch
-                  ? "No JD found matching your search"
-                  : "No JDs available"}
+                {jdSearch ? "No JD found matching your search" : "No JDs available"}
               </div>
             )}
           </div>
@@ -255,8 +230,8 @@ function CreateOptions() {
                 placeholder="Search candidate..."
                 value={candidateSearch}
                 onChange={(e) => {
-                  setCandidateSearch(e.target.value);
-                  setPage(1);
+                  setCandidateSearch(e.target.value)
+                  setPage(1)
                 }}
                 className="border border-gray-300 rounded-lg px-2 py-1 text-xs focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
               />
@@ -284,24 +259,17 @@ function CreateOptions() {
                     <label className="flex items-center gap-2 cursor-pointer">
                       <input
                         type="checkbox"
-                        checked={selectedCandidates?.id === c.id}
-                        onChange={() =>
-                          toggleCandidate(c.id, c.applicant_email)
-                        }
+                        checked={selectedCandidates.includes(c.id)}
+                        onChange={() => toggleCandidate(c.id, c.applicant_email)}
                         className="h-4 w-4 text-blue-600 rounded"
                       />
                       <div className="flex flex-col">
-                        <span className="text-sm font-medium text-gray-800">
-                          {c.applicant_name}
-                        </span>
-                        <span className="text-xs text-gray-500">
-                          {selectedJD.title} • Applied on:{" "}
-                          {formatDate(c.applied_at)}
-                        </span>
+                        <span className="text-sm font-medium text-gray-800">{c.applicant_name}</span>
+                        <span className="text-xs text-gray-500">{selectedJD.title} • Applied on: {formatDate(c.applied_at)}</span>
                       </div>
                     </label>
 
-                    {selectedCandidates?.id === c.id && (
+                    {selectedCandidates.includes(c.id) && (
                       <Link href={`/admin/dashboard/interviews/ai/create-interview?id=${selectedCandidates.id}&jobid=${selectedJD.id}&emailid=${selectedCandidates.email}`}>
                         <button
                           type="button"
@@ -326,9 +294,7 @@ function CreateOptions() {
                   >
                     Previous
                   </button>
-                  <span className="text-xs text-gray-600">
-                    Page {page} of {totalPages}
-                  </span>
+                  <span className="text-xs text-gray-600">Page {page} of {totalPages}</span>
                   <button
                     disabled={page === totalPages}
                     onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
@@ -348,7 +314,7 @@ function CreateOptions() {
       )
       }
     </div >
-  );
+  )
 }
 
 export default CreateOptions;

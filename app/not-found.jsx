@@ -3,8 +3,11 @@
 import { useRouter } from "next/navigation";
 import { Home, AlertTriangle } from "lucide-react";
 import { useEffect, useState } from "react";
+import { useUser } from "@/provider.jsx";
 
 export default function NotFound() {
+    const { user, loading } = useUser();
+    const role = user?.role.toLowerCase();
     const router = useRouter();
     const [countdown, setCountdown] = useState(5);
 
@@ -14,7 +17,7 @@ export default function NotFound() {
         }, 1000);
 
         if (countdown === 0) {
-            router.push("/");
+            router.push(`/${role}/dashboard`);
         }
 
         return () => clearInterval(timer);

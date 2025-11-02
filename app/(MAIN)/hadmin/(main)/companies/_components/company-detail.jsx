@@ -1,15 +1,28 @@
 import React from "react"
-import { Building2, Globe, Mail, MapPin, FileText, CalendarDays, Edit2Icon } from "lucide-react"
+import { Building2, Globe, Mail, MapPin, FileText, CalendarDays, Edit2Icon, Trash2 } from "lucide-react"
 // import { Company } from "../page"
 
-export function CompanyDetail({ company }) {
+export function CompanyDetail({ company, onEdit, onDelete }) {
     return (
         <div className="flex flex-col gap-4 h-full">
             <div className="flex items-center justify-between">
                 <h2 className="text-sm font-bold">Company Details
                 </h2>
-                <div className="hover:bg-gray-200 p-2 cursor-pointer rounded-lg">
-                    <Edit2Icon className="  h-4 w-4 " />
+                <div className="flex items-center gap-2">
+                    <button
+                        onClick={() => onEdit?.(company)}
+                        className="hover:bg-gray-200 p-2 cursor-pointer rounded-lg"
+                        aria-label="Edit company"
+                    >
+                        <Edit2Icon className="h-4 w-4" />
+                    </button>
+                    <button
+                        onClick={() => onDelete?.(company.id)}
+                        className="hover:bg-red-100 p-2 cursor-pointer rounded-lg text-red-600"
+                        aria-label="Delete company"
+                    >
+                        <Trash2 className="h-4 w-4" />
+                    </button>
                 </div>
             </div>
 
