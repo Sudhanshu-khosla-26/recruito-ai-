@@ -198,7 +198,7 @@ export default function CandidateTable() {
         router.push("/admin/dashboard/interviews/manager");
         break;
       default:
-        router.push("/admin/dashboard/interviews/Status");
+        router.push("/admin/dashboard/status");
         break;
     }
   };

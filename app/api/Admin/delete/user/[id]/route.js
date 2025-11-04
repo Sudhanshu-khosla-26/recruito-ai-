@@ -2,17 +2,13 @@ import { NextResponse } from "next/server";
 import { adminDB } from "@/lib/firebase-admin";
 import { getAuth } from "firebase-admin/auth";
 
-export async function DELETE(
-    request,
-    { params }
-) {
+export async function DELETE(request, { params }) {
     try {
         const session = request.cookies.get("session")?.value;
         if (!session) {
             return NextResponse.json({ error: "No session found" }, { status: 400 });
         }
 
-        // Verify session with Admin SDK
         let decodedUser;
         try {
             const decodedToken = await getAuth().verifySessionCookie(session, true);
@@ -28,32 +24,75 @@ export async function DELETE(
             return NextResponse.json({ error: "Invalid token" }, { status: 403 });
         }
 
-        // Role check
         if (decodedUser.role !== "Admin") {
             return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
         }
 
         const { id } = await params;
-        const docRef = await adminDB.collection("users").doc(id);
-        const userDoc = await docRef.get();
 
-        if (!userDoc.exists) {
+        if (!id) {
+            return NextResponse.json({ error: "User ID is required" }, { status: 400 });
+        }
+
+        // Get user document to delete
+        const userDocToDelete = await adminDB.collection("users").doc(id).get();
+
+        if (!userDocToDelete.exists) {
             return NextResponse.json({ error: "User not found" }, { status: 404 });
         }
 
-        if (userDoc.data()?.company_id !== decodedUser.company_id) {
-            return NextResponse.json({ error: "Forbidden: Not your company Employee" }, { status: 403 });
+        const userDataToDelete = userDocToDelete.data();
+
+        // Check company ownership
+        if (userDataToDelete?.company_id !== decodedUser.company_id) {
+            return NextResponse.json({
+                error: "Forbidden: Not your company employee"
+            }, { status: 403 });
         }
 
-        if (userDoc.data()?.role === "Admin") {
-            return NextResponse.json({ error: "Cannot delete another Admin" }, { status: 403 });
+        // Prevent deleting another Admin
+        if (userDataToDelete?.role === "Admin") {
+            return NextResponse.json({
+                error: "Cannot delete another Admin"
+            }, { status: 403 });
         }
 
-        await docRef.delete();
-        return NextResponse.json({ message: "User deleted successfully" }, { status: 200 });
+        try {
+            // Delete from Firebase Auth first
+            try {
+                await getAuth().deleteUser(id);
+                console.log("User deleted from Firebase Auth:", id);
+            } catch (authError) {
+                console.error("Error deleting from Auth:", authError);
+                // Continue with Firestore deletion
+            }
+
+            // Delete from Firestore
+            await adminDB.collection("users").doc(id).delete();
+            console.log("User deleted from Firestore:", id);
+
+            return NextResponse.json({
+                message: "User deleted successfully from both Auth and Database",
+                deletedUser: {
+                    id: id,
+                    email: userDataToDelete.email,
+                    name: userDataToDelete.name
+                }
+            }, { status: 200 });
+
+        } catch (deleteError) {
+            console.error("Error during deletion:", deleteError);
+            return NextResponse.json({
+                error: "Failed to delete user completely",
+                details: deleteError.message
+            }, { status: 500 });
+        }
+
     } catch (err) {
         console.error("Delete user error:", err);
-        return NextResponse.json({ error: "Something went wrong" }, { status: 500 });
+        return NextResponse.json({
+            error: "Internal Server Error",
+            details: err.message
+        }, { status: 500 });
     }
 }
-

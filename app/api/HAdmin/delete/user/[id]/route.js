@@ -31,13 +31,69 @@ export async function DELETE(request, { params }) {
 
         const { id } = await params;
 
-        const userRef = await adminDB.collection("users").doc(id).delete();
+        if (!id) {
+            return NextResponse.json({ error: "User ID is required" }, { status: 400 });
+        }
 
-        console.log("user deleted", userRef);
+        // Prevent self-deletion
+        if (id === decodedUser.uid) {
+            return NextResponse.json({
+                error: "Cannot delete your own account"
+            }, { status: 403 });
+        }
 
-        return NextResponse.json({ message: "User deleted successfully" }, { status: 200 });
+        // Step 1: Get user document to verify it exists
+        const userDocToDelete = await adminDB.collection("users").doc(id).get();
+
+        if (!userDocToDelete.exists) {
+            return NextResponse.json({ error: "User not found" }, { status: 404 });
+        }
+
+        const userData = userDocToDelete.data();
+
+        try {
+            // Step 2: Delete from Firebase Authentication
+            if (userData.uid || id) {
+                try {
+                    await getAuth().deleteUser(userData.uid || id);
+                    console.log("User deleted from Firebase Auth:", userData.uid || id);
+                } catch (authError) {
+                    console.error("Error deleting from Auth:", authError);
+                    // Continue with Firestore deletion even if Auth deletion fails
+                    // User might not exist in Auth but exists in Firestore
+                    if (authError.code !== 'auth/user-not-found') {
+                        // If it's not a "user not found" error, we might want to stop
+                        console.warn("Non-standard auth deletion error:", authError.code);
+                    }
+                }
+            }
+
+            // Step 3: Delete from Firestore
+            await adminDB.collection("users").doc(id).delete();
+            console.log("User deleted from Firestore:", id);
+
+            return NextResponse.json({
+                message: "User deleted successfully from both Auth and Database",
+                deletedUser: {
+                    id: id,
+                    email: userData.email,
+                    name: userData.name
+                }
+            }, { status: 200 });
+
+        } catch (deleteError) {
+            console.error("Error during deletion:", deleteError);
+            return NextResponse.json({
+                error: "Failed to delete user completely",
+                details: deleteError.message
+            }, { status: 500 });
+        }
 
     } catch (error) {
-        return NextResponse.json({ error: "Internal Server Error" }, { status: 500 })
+        console.error("Unexpected error:", error);
+        return NextResponse.json({
+            error: "Internal Server Error",
+            details: error.message
+        }, { status: 500 });
     }
 }

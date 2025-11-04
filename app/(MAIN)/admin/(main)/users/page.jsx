@@ -50,6 +50,12 @@ export default function AdminUserManagement() {
     const [viewMode, setViewMode] = useState("table");
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
+    const [creatingUserStatus, setCreatingUserStatus] = useState({
+        isLoading: false,
+        step: '',
+        progress: 0
+    });
+    const [companyInfo, setCompanyInfo] = useState(null);
 
     // Filters
     const [statusFilter, setStatusFilter] = useState("all");
@@ -61,9 +67,20 @@ export default function AdminUserManagement() {
         name: "",
         email: "",
         role: "HR",
+        password: "",
     });
 
     useEffect(() => {
+        const getCompanyInfo = async () => {
+            try {
+                const res = await axios.get("/api/user/profile"); // Or your user info endpoint
+                if (res.data.company_id) {
+                    setCompanyInfo({ id: res.data.company_id, name: res.data.company_name });
+                }
+            } catch (error) {
+                console.error("Error fetching company info:", error);
+            }
+        };
         const getalluser = async () => {
             try {
                 setLoading(true);
@@ -88,45 +105,147 @@ export default function AdminUserManagement() {
             }
         };
         getalluser();
+        getCompanyInfo();
     }, []);
 
-    const handleCreateUser = () => {
-        if (!formData.name || !formData.email) {
-            alert("Please fill in all fields");
+    const handleCreateUser = async () => {
+        if (!formData.name || !formData.email || !formData.password) {
+            alert("Please fill in all required fields");
             return;
         }
 
-        const newUser = {
-            id: users.length > 0 ? Math.max(...users.map(u => typeof u.id === 'number' ? u.id : 0)) + 1 : 1,
-            name: formData.name,
-            email: formData.email,
-            role: formData.role,
-            status: "active",
-            createdAt: new Date().toISOString().split("T")[0],
-        };
-
-        setUsers([...users, newUser]);
-        setFormData({ name: "", email: "", role: "HR" });
-        setShowCreateModal(false);
-    };
-
-    const handleEditUser = () => {
-        if (!formData.name || !formData.email) {
-            alert("Please fill in all fields");
+        if (formData.password.length < 6) {
+            alert("Password must be at least 6 characters");
             return;
         }
 
-        setUsers(
-            users.map((u) =>
-                u.id === selectedUser.id
-                    ? { ...u, name: formData.name, email: formData.email, role: formData.role }
-                    : u
-            )
-        );
-        setFormData({ name: "", email: "", role: "HR" });
-        setShowEditModal(false);
-        setSelectedUser(null);
+        try {
+            setCreatingUserStatus({ isLoading: true, step: 'Creating account...', progress: 25 });
+
+            const newUser = {
+                name: formData.name,
+                email: formData.email,
+                role: formData.role,
+                password: formData.password
+
+            };
+
+            const res = await axios.post("/api/Admin/create-user", newUser);
+
+            if (res.status === 201) {
+                setCreatingUserStatus({ isLoading: true, step: 'Sending welcome email...', progress: 60 });
+
+                // Send welcome email
+                await axios.post("/api/Notification/Email", {
+                    to: formData.email,
+                    subject: "Welcome - Your Account Details",
+                    html: `
+                    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+                        <h2 style="color: #16a34a;">Welcome to ${companyInfo?.name || 'Our Platform'}!</h2>
+                        <p>Hello ${formData.name},</p>
+                        <p>Your account has been created successfully.</p>
+                        
+                        <div style="background-color: #f3f4f6; padding: 20px; border-radius: 8px; margin: 20px 0;">
+                            <p style="margin: 5px 0;"><strong>Email:</strong> ${formData.email}</p>
+                            <p style="margin: 5px 0;"><strong>Password:</strong> ${formData.password}</p>
+                            <p style="margin: 5px 0;"><strong>Role:</strong> ${formData.role}</p>
+                        </div>
+                        
+                        <p style="color: #dc2626; font-size: 14px;">
+                            ⚠️ Please change your password after your first login.
+                        </p>
+                        
+                        <p>Best regards,<br/>The Team</p>
+                    </div>
+                `,
+                    text: `Welcome!\n\nHello ${formData.name},\n\nYour account has been created.\n\nEmail: ${formData.email}\nPassword: ${formData.password}\nRole: ${formData.role}\n\nPlease change your password after login.`
+                }).catch(err => console.error("Email error:", err));
+
+                setCreatingUserStatus({ isLoading: true, step: 'Refreshing data...', progress: 90 });
+
+                // Refresh users
+                const usersRes = await axios.get("/api/Admin/all-users");
+                if (usersRes.data.users) {
+                    const mappedUsers = mapFirebaseUsersToComponent(usersRes.data.users);
+                    setUsers(mappedUsers);
+                }
+
+                setCreatingUserStatus({ isLoading: false, step: 'Complete!', progress: 100 });
+                alert("User created and welcome email sent!");
+            }
+        } catch (error) {
+            console.error("Error creating user:", error);
+            alert("Failed to create user: " + (error.response?.data?.error || error.message));
+        } finally {
+            setCreatingUserStatus({ isLoading: false, step: '', progress: 0 });
+            setFormData({ name: "", email: "", role: "", password: "" });
+            setShowCreateModal(false);
+        }
     };
+
+
+    const handleEditUser = async () => {
+        if (!formData.role) {
+            alert("Please select a role");
+            return;
+        }
+
+        try {
+            setLoading(true);
+
+            const res = await axios.patch("/api/Admin/update-user", {
+                candidateID: selectedUser.id,
+                role: formData.role,
+                // permissions: formData.permissions,
+                status: formData.status
+            });
+
+            if (res.status === 200) {
+                const roleChanged = selectedUser.role !== formData.role;
+
+                if (roleChanged) {
+                    // Send role change email
+                    await axios.post("/api/Notification/Email", {
+                        to: selectedUser.email,
+                        subject: "Role Updated",
+                        html: `
+                        <div style="font-family: Arial, sans-serif; max-width: 600px;">
+                            <h2 style="color: #16a34a;">Role Update</h2>
+                            <p>Hello ${selectedUser.name},</p>
+                            <p>Your role has been updated.</p>
+                            <div style="background-color: #f3f4f6; padding: 20px; border-radius: 8px; margin: 20px 0;">
+                                <p><strong>Previous:</strong> ${selectedUser.role}</p>
+                                <p><strong>New Role:</strong> ${formData.role}</p>
+                            </div>
+                            <p>Best regards,<br/>The Team</p>
+                        </div>
+                    `
+                    }).catch(err => console.error("Email error:", err));
+                }
+
+                // Update local state
+                setUsers(users.map(u =>
+                    u.id === selectedUser.id
+                        ? { ...u, role: formData.role }
+                        : u
+                ));
+                alert(roleChanged ? "User updated and notification sent!" : "User updated!");
+            }
+
+            setShowEditModal(false);
+            setSelectedUser(null);
+            setFormData({ name: "", email: "", role: "", password: "", permissions: [] });
+        } catch (error) {
+            console.error("Error updating user:", error);
+            alert("Failed to update: " + (error.response?.data?.error || error.message));
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    // Update handleToggleStatus
+
+
 
     const openEditModal = (user) => {
         setSelectedUser(user);
@@ -149,14 +268,41 @@ export default function AdminUserManagement() {
         setLoading(false)
     };
 
-    const handleToggleStatus = (user) => {
-        setUsers(
-            users.map((u) =>
-                u.id === user.id
-                    ? { ...u, status: u.status === "active" ? "suspended" : "active" }
-                    : u
-            )
-        );
+    const handleToggleStatus = async (user) => {
+        try {
+            setLoading(true);
+            const newStatus = user.status === "active" ? "suspended" : "active";
+
+            const res = await axios.patch("/api/Admin/update-user", {
+                candidateID: user.id,
+                status: newStatus
+            });
+
+            if (res.status === 200) {
+                // Send status change email
+                await axios.post("/api/Notification/Email", {
+                    to: user.email,
+                    subject: `Account ${newStatus === 'active' ? 'Activated' : 'Suspended'}`,
+                    html: `
+                    <div style="font-family: Arial, sans-serif;">
+                        <h2 style="color: ${newStatus === 'active' ? '#16a34a' : '#dc2626'};">
+                            Account ${newStatus === 'active' ? 'Activated' : 'Suspended'}
+                        </h2>
+                        <p>Hello ${user.name},</p>
+                        <p>Your account status: <strong>${newStatus}</strong></p>
+                    </div>
+                `
+                }).catch(err => console.error("Email error:", err));
+
+                setUsers(users.map(u => u.id === user.id ? { ...u, status: newStatus } : u));
+                alert("Status updated and user notified!");
+            }
+        } catch (error) {
+            console.error("Error:", error);
+            alert("Failed to update status");
+        } finally {
+            setLoading(false);
+        }
     };
 
     const filteredUsers = users.filter((user) => {
@@ -544,7 +690,7 @@ export default function AdminUserManagement() {
 
             {/* Create User Modal */}
             {showCreateModal && (
-                <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50 p-4">
+                <div className="fixed inset-0 bg-black/40 bg-opacity-40 flex items-center justify-center z-50 p-4">
                     <div className="bg-white rounded-lg p-4 sm:p-6 w-full max-w-md shadow-lg relative">
                         <button
                             onClick={() => setShowCreateModal(false)}
@@ -586,6 +732,33 @@ export default function AdminUserManagement() {
                                     className="border border-gray-300 rounded px-3 py-2 w-full text-sm"
                                 />
                             </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">
+                                    Password <span className="text-red-500">*</span>
+                                </label>
+                                <input
+                                    type="password"
+                                    value={formData.password}
+                                    onChange={(e) =>
+                                        setFormData({ ...formData, password: e.target.value })
+                                    }
+                                    placeholder="Minimum 6 characters"
+                                    className="border border-gray-300 rounded px-3 py-2 w-full text-sm"
+                                />
+                            </div>
+
+                            {creatingUserStatus.isLoading && (
+                                <div className="absolute inset-0 bg-white/90 flex flex-col items-center justify-center rounded-lg z-10">
+                                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600 mb-4"></div>
+                                    <p className="text-sm font-medium text-gray-700">{creatingUserStatus.step}</p>
+                                    <div className="w-64 bg-gray-200 rounded-full h-2 mt-3">
+                                        <div
+                                            className="bg-green-600 h-2 rounded-full transition-all duration-300"
+                                            style={{ width: `${creatingUserStatus.progress}%` }}
+                                        ></div>
+                                    </div>
+                                </div>
+                            )}
 
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -659,13 +832,13 @@ export default function AdminUserManagement() {
 
             {/* Edit User Modal */}
             {showEditModal && selectedUser && (
-                <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50 p-4">
+                <div className="fixed inset-0 bg-black/40 bg-opacity-40 flex items-center justify-center z-50 p-4">
                     <div className="bg-white rounded-lg p-4 sm:p-6 w-full max-w-md shadow-lg relative">
                         <button
                             onClick={() => {
                                 setShowEditModal(false);
                                 setSelectedUser(null);
-                                setFormData({ name: "", email: "", role: "HR" });
+                                setFormData({ name: "", email: "", role: "" });
                             }}
                             className="absolute top-3 right-3 text-gray-400 hover:text-gray-600 text-xl"
                         >
@@ -719,13 +892,10 @@ export default function AdminUserManagement() {
                                     }
                                     className="border border-gray-300 rounded px-3 py-2 w-full text-sm"
                                 >
-                                    <option value="Admin">admin</option>
-                                    <option value="Hhr">hhr</option>
-                                    <option value="Hr">hr</option>
-                                    <option value="Hm">hm</option>
-
-
-
+                                    <option value="Admin">Admin</option>
+                                    <option value="HHR">Head HR</option>
+                                    <option value="HR">HR</option>
+                                    <option value="HM">HM</option>
                                 </select>
                             </div>
                         </div>

@@ -203,8 +203,60 @@ export default function InterviewStatusPage() {
               <h2 className="text-base sm:text-lg font-semibold text-gray-700">All Candidates ({candidates.length})</h2>
             </div>
 
-            <div className="overflow-x-auto">
-              <table className="w-full text-xs sm:text-sm">
+            <div className="block lg:hidden divide-y divide-gray-200">
+              {candidates.map((candidate) => {
+                const progress = getProgressPercentage(candidate);
+                const completedStages = getCompletedStagesCount(candidate);
+
+                return (
+                  <div key={candidate.id} className="p-3 hover:bg-gray-50">
+                    <div className="flex items-start gap-3 mb-3">
+                      <div className="flex-shrink-0 h-10 w-10 bg-orange-100 rounded-full flex items-center justify-center">
+                        <User className="h-5 w-5 text-orange-600" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-start justify-between gap-2 mb-1">
+                          <div className="min-w-0 flex-1">
+                            <h3 className="text-sm font-medium text-gray-900 truncate">{candidate.name}</h3>
+                            <p className="text-xs text-gray-500 truncate">{candidate.position}</p>
+                          </div>
+                          <span className={`px-2 py-0.5 rounded-full text-xs font-semibold whitespace-nowrap ${getScoreColor(candidate.score / 10)}`}>
+                            {(candidate.score / 10).toFixed(0)}%
+                          </span>
+                        </div>
+
+                        <div className="flex items-center gap-2 text-xs text-gray-500 mb-2">
+                          <MapPin className="h-3 w-3" />
+                          <span className="truncate">{candidate.location}</span>
+                          <span>•</span>
+                          <span>{candidate.appliedDate}</span>
+                        </div>
+
+                        <div className="flex items-center gap-2 mb-2">
+                          <div className="flex-1 bg-gray-200 rounded-full h-1.5">
+                            <div
+                              className="bg-orange-500 h-1.5 rounded-full transition-all duration-300"
+                              style={{ width: `${progress}%` }}
+                            ></div>
+                          </div>
+                          <span className="text-xs text-gray-600 whitespace-nowrap">{completedStages}/{stages.length}</span>
+                        </div>
+
+                        <button
+                          onClick={() => handleCandidateClick(candidate)}
+                          className="text-orange-600 hover:text-orange-700 text-xs font-medium"
+                        >
+                          View Details →
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            <div className="hidden lg:block overflow-x-auto">
+              <table className="w-full text-sm">
                 <thead className="bg-gray-50">
                   <tr>
                     <th className="px-3 sm:px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Candidate</th>

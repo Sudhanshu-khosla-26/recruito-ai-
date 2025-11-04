@@ -64,8 +64,9 @@ export default function AdminUserManagement() {
     const [formData, setFormData] = useState({
         name: "",
         email: "",
-        role: "HR",
+        role: "",
         company: "",
+        password: "",
     });
 
     useEffect(() => {
@@ -106,8 +107,13 @@ export default function AdminUserManagement() {
     }, []);
 
     const handleCreateUser = async () => {
-        if (!formData.name || !formData.email) {
-            alert("Please fill in all fields");
+        if (!formData.name || !formData.email || !formData.password) {
+            alert("Please fill in all fields including password");
+            return;
+        }
+
+        if (formData.password.length < 6) {
+            alert("Password must be at least 6 characters");
             return;
         }
 
@@ -119,18 +125,62 @@ export default function AdminUserManagement() {
         const newUser = {
             name: formData.name,
             email: formData.email,
-            role: formData.role,
+            role: formData.role === "Head Admin" ? "HAdmin" : "Admin",
             status: "active",
-            company_id: formData.company
+            company_id: formData?.company || "",
+            password: formData.password // Add this line
         };
 
-        const res = await axios.post("/api/HAdmin/create-user", newUser)
+        try {
+            const res = await axios.post("/api/HAdmin/create-user", newUser);
 
-        console.log(res)
+            if (res.status === 201) {
+                // Send welcome email with credentials
+                await axios.post("/api/Notification/Email", {
+                    to: formData.email,
+                    subject: "Welcome to the Platform - Your Account Details",
+                    html: `
+                    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+                        <h2 style="color: #16a34a;">Welcome to Our Platform!</h2>
+                        <p>Hello ${formData.name},</p>
+                        <p>Your account has been successfully created. Here are your login credentials:</p>
+                        
+                        <div style="background-color: #f3f4f6; padding: 20px; border-radius: 8px; margin: 20px 0;">
+                            <p style="margin: 5px 0;"><strong>Email:</strong> ${formData.email}</p>
+                            <p style="margin: 5px 0;"><strong>Password:</strong> ${formData.password}</p>
+                            <p style="margin: 5px 0;"><strong>Role:</strong> ${formData.role}</p>
+                        </div>
+                        
+                        <p style="color: #dc2626; font-size: 14px;">
+                            ⚠️ <strong>Important:</strong> Please change your password after your first login for security purposes.
+                        </p>
+                        
+                        <p>You can login at: <a href="${process.env.NEXT_PUBLIC_APP_URL}/login" style="color: #16a34a;">Login Here</a></p>
 
+                        <p>If you have any questions, feel free to contact support.</p>
 
-        setFormData({ name: "", email: "", role: "HR", });
-        setShowCreateModal(false);
+                    <p style="margin-top: 30px;">Best regards,<br />The Team</p>
+                    </div >
+        `,
+                    text: `Welcome to Our Platform!\n\nHello ${formData.name}, \n\nYour account has been created successfully.\n\nLogin Credentials: \nEmail: ${formData.email} \nPassword: ${formData.password} \nRole: ${formData.role} \n\nPlease change your password after your first login.\n\nBest regards, \nThe Team`
+                });
+
+                alert("User created successfully! Welcome email sent.");
+
+                // Refresh users list
+                const usersRes = await axios.get("/api/HAdmin/get-all-users");
+                if (usersRes.data.users) {
+                    const mappedUsers = mapFirebaseUsersToComponent(usersRes.data.users);
+                    setUsers(mappedUsers);
+                }
+            }
+        } catch (error) {
+            console.error("Error creating user:", error);
+            alert("Failed to create user: " + (error.response?.data?.error || error.message));
+        } finally {
+            setFormData({ name: "", email: "", role: "HR", company: "", password: "" }); // Reset including password
+            setShowCreateModal(false);
+        }
     };
 
     const handleEditUser = async () => {
@@ -180,7 +230,7 @@ export default function AdminUserManagement() {
 
     const handleDeleteUser = async () => {
         setLoading(true)
-        const res = await axios.delete(`/api/HAdmin/delete/user/${selectedUser.id}`);
+        const res = await axios.delete(`/ api / HAdmin / delete /user/${selectedUser.id} `);
         if (res.status === 200) {
             setUsers(users.filter((u) => u.id !== selectedUser.id));
         }
@@ -240,7 +290,7 @@ export default function AdminUserManagement() {
 
     if (loading) {
         return (
-            <div className="min-h-screen bg-gradient-to-br from-gray-100 to-gray-200 flex items-center justify-center p-4">
+            <div className="min-h-screen flex items-center justify-center p-4">
                 <div className="bg-white rounded-lg shadow p-8 text-center">
                     <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600 mx-auto mb-4"></div>
                     <p className="text-gray-600">Loading...</p>
@@ -387,18 +437,20 @@ export default function AdminUserManagement() {
                                         <td className="p-4 text-gray-600">{user.email}</td>
                                         <td className="p-4">
                                             <span
-                                                className={`px-2 py-1 rounded text-xs font-medium ${getRoleBadgeColor(
+                                                className={`px - 2 py - 1 rounded text - xs font - medium ${getRoleBadgeColor(
                                                     user.role
-                                                )}`}
+                                                )
+                                                    } `}
                                             >
                                                 {user.role}
                                             </span>
                                         </td>
                                         <td className="p-4">
                                             <span
-                                                className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(
+                                                className={`px - 2 py - 1 rounded - full text - xs font - medium ${getStatusColor(
                                                     user.status
-                                                )}`}
+                                                )
+                                                    } `}
                                             >
                                                 {user.status}
                                             </span>
@@ -414,10 +466,10 @@ export default function AdminUserManagement() {
                                                 </button>
                                                 <button
                                                     onClick={() => handleToggleStatus(user)}
-                                                    className={`px-3 py-1 rounded text-xs font-medium ${user.status === "active"
+                                                    className={`px - 3 py - 1 rounded text - xs font - medium ${user.status === "active"
                                                         ? "bg-orange-100 text-orange-700 hover:bg-orange-200"
                                                         : "bg-green-100 text-green-700 hover:bg-green-200"
-                                                        }`}
+                                                        } `}
                                                 >
                                                     {user.status === "active" ? "Suspend" : "Activate"}
                                                 </button>
@@ -480,11 +532,11 @@ export default function AdminUserManagement() {
                                                     </div>
                                                 </td>
                                                 <td className="p-3">
-                                                    <span className={`px-2 py-1 rounded text-xs font-medium ${getRoleBadgeColor(user.role)}`}>
+                                                    <span className={`px - 2 py - 1 rounded text - xs font - medium ${getRoleBadgeColor(user.role)} `}>
                                                         {user.role}
                                                     </span>
                                                     <div className="mt-1">
-                                                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(user.status)}`}>
+                                                        <span className={`px - 2 py - 1 rounded - full text - xs font - medium ${getStatusColor(user.status)} `}>
                                                             {user.status}
                                                         </span>
                                                     </div>
@@ -499,10 +551,10 @@ export default function AdminUserManagement() {
                                                         </button>
                                                         <button
                                                             onClick={() => handleToggleStatus(user)}
-                                                            className={`px-2 py-1 rounded text-xs font-medium ${user.status === "active"
+                                                            className={`px - 2 py - 1 rounded text - xs font - medium ${user.status === "active"
                                                                 ? "bg-orange-100 text-orange-700"
                                                                 : "bg-green-100 text-green-700"
-                                                                }`}
+                                                                } `}
                                                         >
                                                             {user.status === "active" ? "Suspend" : "Activate"}
                                                         </button>
@@ -548,10 +600,10 @@ export default function AdminUserManagement() {
                                     </div>
 
                                     <div className="flex gap-2 mb-3">
-                                        <span className={`px-2 py-1 rounded text-xs font-medium ${getRoleBadgeColor(user.role)}`}>
+                                        <span className={`px - 2 py - 1 rounded text - xs font - medium ${getRoleBadgeColor(user.role)} `}>
                                             {user.role}
                                         </span>
-                                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(user.status)}`}>
+                                        <span className={`px - 2 py - 1 rounded - full text - xs font - medium ${getStatusColor(user.status)} `}>
                                             {user.status}
                                         </span>
                                     </div>
@@ -565,10 +617,10 @@ export default function AdminUserManagement() {
                                         </button>
                                         <button
                                             onClick={() => handleToggleStatus(user)}
-                                            className={`flex-1 px-3 py-2 rounded text-xs font-medium ${user.status === "active"
+                                            className={`flex - 1 px - 3 py - 2 rounded text - xs font - medium ${user.status === "active"
                                                 ? "bg-orange-100 text-orange-700 hover:bg-orange-200"
                                                 : "bg-green-100 text-green-700 hover:bg-green-200"
-                                                }`}
+                                                } `}
                                         >
                                             {user.status === "active" ? "Suspend" : "Activate"}
                                         </button>
@@ -599,7 +651,10 @@ export default function AdminUserManagement() {
                 <div className="fixed inset-0 bg-black/40 bg-opacity-40 flex items-center justify-center z-50 p-4">
                     <div className="bg-white rounded-lg p-4 sm:p-6 w-full max-w-md shadow-lg relative">
                         <button
-                            onClick={() => setShowCreateModal(false)}
+                            onClick={() => {
+                                setShowCreateModal(false);
+                                setFormData({ name: "", email: "", role: "", company: "", password: "" });
+                            }}
                             className="absolute top-3 right-3 text-gray-400 hover:text-gray-600 text-xl"
                         >
                             ✕
@@ -635,6 +690,20 @@ export default function AdminUserManagement() {
                                         setFormData({ ...formData, email: e.target.value })
                                     }
                                     placeholder="user@company.com"
+                                    className="border border-gray-300 rounded px-3 py-2 w-full text-sm"
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">
+                                    Password
+                                </label>
+                                <input
+                                    type="password"
+                                    value={formData.password}
+                                    onChange={(e) =>
+                                        setFormData({ ...formData, password: e.target.value })
+                                    }
+                                    placeholder="Enter password (min 6 characters)"
                                     className="border border-gray-300 rounded px-3 py-2 w-full text-sm"
                                 />
                             </div>
@@ -683,7 +752,10 @@ export default function AdminUserManagement() {
 
                         <div className="flex flex-col sm:flex-row gap-3 mt-6">
                             <button
-                                onClick={() => setShowCreateModal(false)}
+                                onClick={() => {
+                                    setShowCreateModal(false);
+                                    setFormData({ name: "", email: "", role: "", company: "", password: "" });
+                                }}
                                 className="flex-1 px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-800 rounded text-sm font-medium"
                             >
                                 Cancel

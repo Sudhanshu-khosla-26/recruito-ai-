@@ -24,16 +24,31 @@ export async function POST(request) {
             return NextResponse.json({ error: "Invalid token" }, { status: 403 });
         }
 
-        const validRoles = ["HAdmin"];
+        const validRoles = ["Admin"];
         if (!validRoles.includes(decodedUser.role)) {
             return NextResponse.json({ error: "User role is not valid" }, { status: 403 });
         }
 
-        const { role, name, email, company_id, status, password } = await request.json();
+        // Admin must have company_id
+        if (!decodedUser.company_id) {
+            return NextResponse.json({ error: "Admin user must be associated with a company" }, { status: 403 });
+        }
+
+        const { role, name, email, password } = await request.json();
 
         // Validate required fields
-        if (!role || !name || !email || !status || !password) {
-            return NextResponse.json({ error: "Missing required fields (role, name, email, status, password)" }, { status: 400 });
+        if (!role || !name || !email || !password) {
+            return NextResponse.json({
+                error: "Missing required fields (role, name, email, password)"
+            }, { status: 400 });
+        }
+
+        // Validate allowed roles for Admin
+        const allowedRoles = ["HHR", "HR", "HM"];
+        if (!allowedRoles.includes(role)) {
+            return NextResponse.json({
+                error: "Invalid role. Admin can only create HHR, HR, or HM users"
+            }, { status: 400 });
         }
 
         // Validate email format
@@ -47,26 +62,19 @@ export async function POST(request) {
             return NextResponse.json({ error: "Password must be at least 6 characters" }, { status: 400 });
         }
 
-        // Check if user already exists in Firestore
+        // Check if user already exists
         const userref = await adminDB.collection("users").where("email", "==", email).get();
         if (!userref.empty) {
             return NextResponse.json({ error: "User with this email already exists" }, { status: 409 });
         }
 
-        // For non-HAdmin roles, validate company_id
-        if (role !== "HAdmin") {
-            if (!company_id) {
-                return NextResponse.json({ error: "Company ID is required for non-HAdmin users" }, { status: 400 });
-            }
-
-            // Verify company exists
-            const companyDoc = await adminDB.collection("companies").doc(company_id).get();
-            if (!companyDoc.exists) {
-                return NextResponse.json({ error: "Company not found" }, { status: 404 });
-            }
+        // Verify company exists
+        const companyDoc = await adminDB.collection("companies").doc(decodedUser.company_id).get();
+        if (!companyDoc.exists) {
+            return NextResponse.json({ error: "Company not found" }, { status: 404 });
         }
 
-        // Step 1: Create Firebase Auth user first
+        // Step 1: Create Firebase Auth user
         let authUser;
         try {
             authUser = await getAuth().createUser({
@@ -83,24 +91,20 @@ export async function POST(request) {
             }, { status: 500 });
         }
 
-        // Step 2: Create Firestore user document with same UID
+        // Step 2: Create Firestore user document
         const userData = {
             email: email,
             name: name,
             role: role,
-            status: status,
+            status: "active",
+            company_id: decodedUser.company_id, // Use admin's company_id
+
             created_at: new Date(),
             updated_at: new Date(),
             created_by: decodedUser.uid
         };
 
-        // Add company_id for non-HAdmin roles
-        if (role !== "HAdmin" && company_id) {
-            userData.company_id = company_id;
-        }
-
         try {
-            // Use auth UID as Firestore document ID
             await adminDB.collection("users").doc(authUser.uid).set(userData);
 
             return NextResponse.json({
@@ -114,7 +118,7 @@ export async function POST(request) {
         } catch (firestoreError) {
             console.error("Error creating Firestore user:", firestoreError);
 
-            // Rollback: Delete the auth user if Firestore creation fails
+            // Rollback: Delete auth user
             try {
                 await getAuth().deleteUser(authUser.uid);
             } catch (deleteError) {

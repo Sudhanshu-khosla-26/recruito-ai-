@@ -39,7 +39,7 @@ const shareToTeams = (url) => {
 };
 
 function InterviewLink({ interview_id, formData, questions }) {
-  const url = "http://localhost:3000/interview" + "/" + interview_id;
+  const url = `${process.env.NEXT_PUBLIC_APP_URL}/interview` + "/" + interview_id;
   const [validity, setValidity] = useState("2 Days");
   const [showEmailModal, setShowEmailModal] = useState(false);
   const [email, setEmail] = useState("");

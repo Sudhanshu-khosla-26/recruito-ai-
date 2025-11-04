@@ -19,6 +19,8 @@ function DashboardProvider({ children }) {
     const isHadminRoute = pathname.startsWith('/hadmin');
     const isCandidateRoute = pathname.startsWith('/candidate');
     const isAdminRoute = pathname.startsWith('/admin');
+    const isHrRoute = pathname.startsWith('/hr');
+    const isHmRoute = pathname.startsWith('/hm');
 
 
 
@@ -33,7 +35,9 @@ function DashboardProvider({ children }) {
 
         if (isHadminRoute && role !== 'hadmin' ||
             isAdminRoute && role !== 'admin' ||
-            isCandidateRoute && role !== 'jobseeker'
+            isCandidateRoute && role !== 'jobseeker' ||
+            isHrRoute && role !== 'hr' ||
+            isHmRoute && role !== 'hm'
         ) {
             setShow(true);
         } else {
