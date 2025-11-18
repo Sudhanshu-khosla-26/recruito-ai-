@@ -1,11 +1,16 @@
 "use client";
-import { ChevronDown, X } from "lucide-react";
+import { ChevronDown, X, CheckCircle } from "lucide-react";
 import React, { useState, useRef, useEffect } from "react";
 import axios from "axios";
+import { useSearchParams } from "next/navigation";
 
 const managerOptions = ["Hiring Manager", "Human Resource", "Additional Round Manager"];
 
 function Managers() {
+  const searchParams = useSearchParams();
+  const jdTitle = searchParams.get("jd");
+  const candidateId = searchParams.get("candidate_id");
+
   // JD State
   const [jdList, setJdList] = useState([]);
   const [selectedJD, setSelectedJD] = useState(null);
@@ -19,6 +24,7 @@ function Managers() {
   const [selectedCandidate, setSelectedCandidate] = useState(null);
   const [candidatesLoading, setCandidatesLoading] = useState(false);
   const [page, setPage] = useState(1);
+  const [scheduledPage, setScheduledPage] = useState(1);
 
   // Right side inputs
   const [manager, setManager] = useState("");
@@ -56,6 +62,11 @@ function Managers() {
         const res = await axios.get("/api/job/get-all-jd");
         console.log("Fetched JDs:", res.data.jobs);
         setJdList(res.data.jobs || []);
+        if (jdTitle) {
+          console.log("jdTitle", jdTitle);
+          const jd = res.data.jobs.find((jd) => jd.title === jdTitle);
+          setSelectedJD(jd);
+        }
       } catch (err) {
         console.error("Failed to fetch JDs:", err);
         setJdList([]);
@@ -64,7 +75,7 @@ function Managers() {
       }
     };
     fetchJD();
-  }, []);
+  }, [jdTitle]);
 
   // Fetch candidates whenever a JD is selected
   useEffect(() => {
@@ -79,6 +90,10 @@ function Managers() {
           `/api/Applications/get-all-applications?jobid=${selectedJD.id}`
         );
         console.log("Fetched candidates:", res.data.applications);
+        // Log first candidate to check structure
+        if (res.data.applications && res.data.applications.length > 0) {
+          console.log("First candidate interviews_list:", res.data.applications[0].interviews_list);
+        }
         setCandidateList(res.data.applications);
       } catch (error) {
         console.error("Failed to fetch candidates:", error);
@@ -91,6 +106,17 @@ function Managers() {
     getCandidates();
   }, [selectedJD]);
 
+  // Auto-select candidate when candidateId is in URL and candidates are loaded
+  useEffect(() => {
+    if (candidateId && candidateList.length > 0) {
+      const candidate = candidateList.find((c) => c.id === candidateId);
+      if (candidate) {
+        console.log("Auto-selecting candidate:", candidate);
+        setSelectedCandidate(candidate);
+      }
+    }
+  }, [candidateId, candidateList]);
+
   // Close dropdown if clicked outside
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -102,6 +128,23 @@ function Managers() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
+  // Helper function to check if candidate has scheduled interview for selected manager type
+  const hasScheduledInterviewForType = (candidate) => {
+    if (!candidate.interviews_list || !Array.isArray(candidate.interviews_list)) {
+      return false;
+    }
+
+    const selectedMode = manager === "Hiring Manager" ? "Whm" : manager === "Human Resource" ? "Whr" : null;
+
+    // If no manager selected, don't filter
+    if (!selectedMode) return false;
+
+    // Check if any interview with the selected mode is scheduled
+    return candidate.interviews_list.some(
+      (interview) => interview.mode === selectedMode && interview.status === 'scheduled'
+    );
+  };
+
   // Filter JD list based on search
   const filteredJDs = jdList.filter(
     (jd) =>
@@ -109,16 +152,31 @@ function Managers() {
       jd.location?.toLowerCase().includes(jdSearch.toLowerCase())
   );
 
-  // Filter candidates from the state based on search
-  const filteredCandidates = candidateList.filter((c) =>
-    c.applicant_name.toLowerCase().includes(candidateSearch.toLowerCase())
-  );
+  // Separate candidates into available and scheduled based on manager type
+  const availableCandidates = candidateList.filter((c) => {
+    const matchesSearch = c.applicant_name.toLowerCase().includes(candidateSearch.toLowerCase());
+    const notScheduled = !hasScheduledInterviewForType(c);
+    return matchesSearch && notScheduled;
+  });
 
-  const totalPages = Math.ceil(filteredCandidates.length / perPage);
+  const scheduledCandidates = candidateList.filter((c) => {
+    const matchesSearch = c.applicant_name.toLowerCase().includes(candidateSearch.toLowerCase());
+    const isScheduled = hasScheduledInterviewForType(c);
+    return matchesSearch && isScheduled;
+  });
+
+  const totalPages = Math.ceil(availableCandidates.length / perPage);
   const startIndex = (page - 1) * perPage;
-  const paginatedCandidates = filteredCandidates.slice(
+  const paginatedCandidates = availableCandidates.slice(
     startIndex,
     startIndex + perPage
+  );
+
+  const totalScheduledPages = Math.ceil(scheduledCandidates.length / perPage);
+  const scheduledStartIndex = (scheduledPage - 1) * perPage;
+  const paginatedScheduledCandidates = scheduledCandidates.slice(
+    scheduledStartIndex,
+    scheduledStartIndex + perPage
   );
 
   const handleCandidateSelect = (candidate) => {
@@ -134,12 +192,14 @@ function Managers() {
     setSelectedJD(null);
     setJdSearch("");
     setPage(1);
+    setScheduledPage(1);
     setSelectedCandidate(null);
   };
 
   const resetCandidateSearch = () => {
     setCandidateSearch("");
     setPage(1);
+    setScheduledPage(1);
   };
 
   const resetAvailability = () => {
@@ -157,11 +217,21 @@ function Managers() {
     resetAvailability();
   }, [manager, hmEmail, fromDate, toDate, duration]);
 
+  // Reset pagination and selected candidate when manager type changes
+  useEffect(() => {
+    setPage(1);
+    setScheduledPage(1);
+    if (selectedCandidate && hasScheduledInterviewForType(selectedCandidate)) {
+      setSelectedCandidate(null);
+    }
+  }, [manager]);
+
   const handleJDSelect = (jd) => {
     setSelectedJD(jd);
     setDropdownOpen(false);
     setJdSearch(jd.title);
     setPage(1);
+    setScheduledPage(1);
     setCandidateSearch("");
     setSelectedCandidate(null);
   };
@@ -257,7 +327,6 @@ function Managers() {
           message: response.data.message
         });
         alert(`Interview booked successfully! ${response.data.message}`);
-        // setShowEmailModal(true);
       } else {
         alert("Failed to book interview");
       }
@@ -552,7 +621,8 @@ function Managers() {
           >
             <div className="flex justify-between items-center mb-3 border-b pb-2">
               <h3 className="text-sm font-semibold text-gray-800">
-                Candidates for {selectedJD.title} (Interview with Managers)
+                Available Candidates for {selectedJD.title}
+                {manager && ` (${manager})`}
               </h3>
               <div className="flex items-center gap-1">
                 <input
@@ -562,6 +632,7 @@ function Managers() {
                   onChange={(e) => {
                     setCandidateSearch(e.target.value);
                     setPage(1);
+                    setScheduledPage(1);
                   }}
                   className="border border-gray-300 rounded-lg px-2 py-1 text-xs focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 />
@@ -574,11 +645,17 @@ function Managers() {
               </div>
             </div>
 
-            {candidatesLoading ? (
+            {!manager && (
+              <div className="flex-1 flex items-center justify-center text-amber-600 text-sm bg-amber-50 rounded-lg p-4 border border-amber-200">
+                <p>Please select a Manager type to filter candidates</p>
+              </div>
+            )}
+
+            {manager && candidatesLoading ? (
               <div className="flex-1 flex items-center justify-center text-gray-500 text-sm">
                 Loading candidates...
               </div>
-            ) : filteredCandidates.length > 0 ? (
+            ) : manager && availableCandidates.length > 0 ? (
               <>
                 <div className="flex flex-col gap-2 flex-1">
                   {paginatedCandidates.map((c) => (
@@ -631,11 +708,15 @@ function Managers() {
                   </div>
                 )}
               </>
-            ) : (
+            ) : manager ? (
               <div className="flex-1 flex items-center justify-center text-gray-500 text-sm">
-                <p>No candidates found for this job description.</p>
+                <p>
+                  {candidateSearch
+                    ? "No available candidates found matching your search."
+                    : "No available candidates for this manager type."}
+                </p>
               </div>
-            )}
+            ) : null}
           </div>
 
           {/* Right Side Card */}
@@ -739,7 +820,6 @@ function Managers() {
                 </div>
               )}
 
-              {/* Book Interview Button */}
               {/* Book Interview or Send Email Buttons */}
               {selectedSlot && (
                 <div className="mt-4">
@@ -814,6 +894,67 @@ function Managers() {
                   )}
                 </div>
               )}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Already Scheduled Candidates Panel */}
+      {selectedJD && manager && scheduledCandidates.length > 0 && (
+        <div className="bg-gradient-to-br from-green-50 to-emerald-50 border-2 border-green-200 rounded-lg p-4 shadow-sm min-h-[300px] flex flex-col">
+          <div className="flex justify-between items-center mb-3 border-b border-green-200 pb-2">
+            <div className="flex items-center gap-2">
+              <CheckCircle className="h-5 w-5 text-green-600" />
+              <h3 className="text-sm font-semibold text-green-800">
+                Already Scheduled with {manager} ({scheduledCandidates.length})
+              </h3>
+            </div>
+          </div>
+
+          <div className="flex flex-col gap-2 flex-1">
+            {paginatedScheduledCandidates.map((c) => (
+              <div
+                key={c.id}
+                className="flex items-center justify-between bg-white border-2 border-green-200 rounded-lg px-3 py-2 opacity-75"
+              >
+                <div className="flex items-center gap-2">
+                  <CheckCircle className="h-4 w-4 text-green-600 flex-shrink-0" />
+                  <div className="flex flex-col">
+                    <span className="text-sm font-medium text-gray-700">
+                      {c.applicant_name}
+                    </span>
+                    <span className="text-xs text-gray-500">
+                      {selectedJD.title} • Interview Scheduled
+                    </span>
+                  </div>
+                </div>
+                <span className="text-xs font-medium text-green-700 bg-green-100 px-2 py-1 rounded">
+                  Scheduled
+                </span>
+              </div>
+            ))}
+          </div>
+
+          {/* Pagination for Scheduled */}
+          {totalScheduledPages > 1 && (
+            <div className="flex justify-between items-center mt-4">
+              <button
+                disabled={scheduledPage === 1}
+                onClick={() => setScheduledPage((p) => Math.max(1, p - 1))}
+                className="px-2 py-1 text-xs border border-green-300 rounded-lg bg-white hover:bg-green-50 disabled:opacity-50"
+              >
+                Previous
+              </button>
+              <span className="text-xs text-green-700">
+                Page {scheduledPage} of {totalScheduledPages}
+              </span>
+              <button
+                disabled={scheduledPage === totalScheduledPages}
+                onClick={() => setScheduledPage((p) => Math.min(totalScheduledPages, p + 1))}
+                className="px-2 py-1 text-xs border border-green-300 rounded-lg bg-white hover:bg-green-50 disabled:opacity-50"
+              >
+                Next
+              </button>
             </div>
           )}
         </div>

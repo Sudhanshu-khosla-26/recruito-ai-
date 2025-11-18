@@ -25,7 +25,7 @@ export async function GET(request) {
             return NextResponse.json({ error: "Invalid token" }, { status: 403 });
         }
 
-        const validRoles = ["Admin", "jobseeker"];
+        const validRoles = ["Admin", "jobseeker", "HR", "HM"];
         if (!validRoles.includes(decodedUser.role)) {
             return NextResponse.json({ error: "User role is not valid" }, { status: 403 });
         }

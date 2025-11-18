@@ -137,7 +137,7 @@ export async function POST(request) {
 
 
 
-        const validRoles = ["Admin", "HHR", "recruiter"];
+        const validRoles = ["Admin", "HHR", "recruiter", "jobseeker", "HR", "HM"];
 
         if (!validRoles.includes(decodedUser.role)) {
 

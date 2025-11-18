@@ -1,5 +1,5 @@
 "use client";
-import { Video, ChevronDown, X, FileSearch } from "lucide-react";
+import { Video, ChevronDown, X, FileSearch, CheckCircle } from "lucide-react";
 import Link from "next/link";
 import React, { useState, useRef, useEffect } from "react";
 import axios from "axios";
@@ -8,6 +8,8 @@ import { useSearchParams } from "next/navigation";
 function CreateOptions() {
   const searchParams = useSearchParams();
   const jdTitle = searchParams.get("jd");
+  const candidateId = searchParams.get("candidate_id"); // Get candidate_id from URL
+
   const [jdList, setJdList] = useState([]);
   const [selectedJD, setSelectedJD] = useState(null);
   console.log("selectjd", selectedJD);
@@ -20,6 +22,7 @@ function CreateOptions() {
   const [selectedCandidates, setSelectedCandidates] = useState(null);
   console.log(selectedCandidates, "selected");
   const [page, setPage] = useState(1);
+  const [scheduledPage, setScheduledPage] = useState(1);
   const [dropdownOpen, setDropdownOpen] = useState(false);
 
   // Separate loading states for JDs and Candidates
@@ -50,7 +53,7 @@ function CreateOptions() {
       }
     };
     fetchJD();
-  }, []);
+  }, [jdTitle]);
 
   // Fetch candidates whenever a JD is selected
   useEffect(() => {
@@ -66,6 +69,11 @@ function CreateOptions() {
           `/api/Applications/get-all-applications?jobid=${selectedJD.id}`
         );
         console.log("Fetched candidates:", res.data.applications);
+        // Log the first candidate to see the structure
+        if (res.data.applications && res.data.applications.length > 0) {
+          console.log("First candidate structure:", res.data.applications[0]);
+          console.log("Interview list:", res.data.applications[0].interviews_list);
+        }
         setCandidateList(res.data.applications || []);
       } catch (error) {
         console.error("Failed to fetch candidates:", error);
@@ -78,6 +86,17 @@ function CreateOptions() {
     getCandidates();
   }, [selectedJD]);
 
+  // Auto-select candidate when candidateId is in URL and candidates are loaded
+  useEffect(() => {
+    if (candidateId && candidateList.length > 0) {
+      const candidate = candidateList.find((c) => c.id === candidateId);
+      if (candidate) {
+        console.log("Auto-selecting candidate:", candidate);
+        setSelectedCandidates({ id: candidate.id, email: candidate.applicant_email });
+      }
+    }
+  }, [candidateId, candidateList]);
+
   // Close dropdown if clicked outside
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -89,6 +108,17 @@ function CreateOptions() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
+  // Helper function to check if candidate has scheduled AI interview
+  const hasScheduledAIInterview = (candidate) => {
+    if (!candidate.interviews_list || !Array.isArray(candidate.interviews_list)) {
+      return false;
+    }
+    // Check if any AI interview (mode: "Wai") in the list is scheduled
+    return candidate.interviews_list.some(
+      (interview) => interview.mode === 'Wai' && interview.status === 'scheduled'
+    );
+  };
+
   // Filter JD list based on search
   const filteredJDs = jdList.filter(
     (jd) =>
@@ -96,22 +126,34 @@ function CreateOptions() {
       jd.location?.toLowerCase().includes(jdSearch.toLowerCase()),
   );
 
-  // Filter candidates from the state based on search
-  const filteredCandidates = candidateList.filter((c) =>
-    c.applicant_name.toLowerCase().includes(candidateSearch.toLowerCase()),
-  );
+  // Separate candidates into scheduled and not scheduled
+  const availableCandidates = candidateList.filter((c) => {
+    const matchesSearch = c.applicant_name.toLowerCase().includes(candidateSearch.toLowerCase());
+    const notScheduled = !hasScheduledAIInterview(c);
+    return matchesSearch && notScheduled;
+  });
 
-  const totalPages = Math.ceil(filteredCandidates.length / perPage);
+  const scheduledCandidates = candidateList.filter((c) => {
+    const matchesSearch = c.applicant_name.toLowerCase().includes(candidateSearch.toLowerCase());
+    const isScheduled = hasScheduledAIInterview(c);
+    return matchesSearch && isScheduled;
+  });
+
+  const totalPages = Math.ceil(availableCandidates.length / perPage);
   const startIndex = (page - 1) * perPage;
-  const paginatedCandidates = filteredCandidates.slice(
+  const paginatedCandidates = availableCandidates.slice(
     startIndex,
     startIndex + perPage,
   );
 
+  const totalScheduledPages = Math.ceil(scheduledCandidates.length / perPage);
+  const scheduledStartIndex = (scheduledPage - 1) * perPage;
+  const paginatedScheduledCandidates = scheduledCandidates.slice(
+    scheduledStartIndex,
+    scheduledStartIndex + perPage,
+  );
+
   const toggleCandidate = (id, email) => {
-    // setSelectedCandidates((prev) =>
-    //   prev.includes(id) ? prev.filter((c) => c !== id) : [...prev, id]
-    // )
     setSelectedCandidates({ id, email });
   };
 
@@ -119,6 +161,7 @@ function CreateOptions() {
   const resetCandidateSearch = () => {
     setCandidateSearch("");
     setPage(1);
+    setScheduledPage(1);
   };
 
   const handleJDSelect = (jd) => {
@@ -126,6 +169,7 @@ function CreateOptions() {
     setDropdownOpen(false);
     setJdSearch(jd.title);
     setPage(1); // Reset pagination on new JD selection
+    setScheduledPage(1);
     setCandidateSearch(""); // Reset candidate search on new JD
     setSelectedCandidates([]); // Clear selected candidates on new JD
   };
@@ -241,12 +285,12 @@ function CreateOptions() {
         )}
       </div>
 
-      {/* Candidate Selection Card */}
+      {/* Candidate Selection Card - Available Candidates */}
       {selectedJD && (
         <div className="bg-white border border-gray-200 rounded-lg p-4 shadow-sm min-h-[360px] flex flex-col">
           <div className="flex justify-between items-center mb-3 border-b pb-2">
             <h3 className="text-sm font-semibold text-gray-800">
-              Candidates for {selectedJD.title}
+              Available Candidates for {selectedJD.title}
             </h3>
             {/* Candidate name type search with reset */}
             <div className="flex items-center gap-1">
@@ -257,6 +301,7 @@ function CreateOptions() {
                 onChange={(e) => {
                   setCandidateSearch(e.target.value);
                   setPage(1);
+                  setScheduledPage(1);
                 }}
                 className="border border-gray-300 rounded-lg px-2 py-1 text-xs focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
               />
@@ -273,7 +318,7 @@ function CreateOptions() {
             <div className="flex-1 flex items-center justify-center text-gray-500 text-sm">
               Loading candidates...
             </div>
-          ) : filteredCandidates.length > 0 ? (
+          ) : availableCandidates.length > 0 ? (
             <>
               <div className="flex flex-col gap-2 flex-1">
                 {paginatedCandidates.map((c) => (
@@ -341,13 +386,77 @@ function CreateOptions() {
             </>
           ) : (
             <div className="flex-1 flex items-center justify-center text-gray-500 text-sm">
-              <p>No candidates found for this job description.</p>
+              <p>
+                {candidateSearch
+                  ? "No available candidates found matching your search."
+                  : "No available candidates for scheduling."}
+              </p>
             </div>
           )}
         </div>
-      )
-      }
-    </div >
+      )}
+
+      {/* Already Scheduled Candidates Panel */}
+      {selectedJD && scheduledCandidates.length > 0 && (
+        <div className="bg-gradient-to-br from-green-50 to-emerald-50 border-2 border-green-200 rounded-lg p-4 shadow-sm min-h-[300px] flex flex-col">
+          <div className="flex justify-between items-center mb-3 border-b border-green-200 pb-2">
+            <div className="flex items-center gap-2">
+              <CheckCircle className="h-5 w-5 text-green-600" />
+              <h3 className="text-sm font-semibold text-green-800">
+                Already Scheduled AI Interviews ({scheduledCandidates.length})
+              </h3>
+            </div>
+          </div>
+
+          <div className="flex flex-col gap-2 flex-1">
+            {paginatedScheduledCandidates.map((c) => (
+              <div
+                key={c.id}
+                className="flex items-center justify-between bg-white border-2 border-green-200 rounded-lg px-3 py-2 opacity-75"
+              >
+                <div className="flex items-center gap-2">
+                  <CheckCircle className="h-4 w-4 text-green-600 flex-shrink-0" />
+                  <div className="flex flex-col">
+                    <span className="text-sm font-medium text-gray-700">
+                      {c.applicant_name}
+                    </span>
+                    <span className="text-xs text-gray-500">
+                      {selectedJD.title} • Interview Scheduled
+                    </span>
+                  </div>
+                </div>
+                <span className="text-xs font-medium text-green-700 bg-green-100 px-2 py-1 rounded">
+                  Scheduled
+                </span>
+              </div>
+            ))}
+          </div>
+
+          {/* Pagination for Scheduled */}
+          {totalScheduledPages > 1 && (
+            <div className="flex justify-between items-center mt-4">
+              <button
+                disabled={scheduledPage === 1}
+                onClick={() => setScheduledPage((p) => Math.max(1, p - 1))}
+                className="px-2 py-1 text-xs border border-green-300 rounded-lg bg-white hover:bg-green-50 disabled:opacity-50"
+              >
+                Previous
+              </button>
+              <span className="text-xs text-green-700">
+                Page {scheduledPage} of {totalScheduledPages}
+              </span>
+              <button
+                disabled={scheduledPage === totalScheduledPages}
+                onClick={() => setScheduledPage((p) => Math.min(totalScheduledPages, p + 1))}
+                className="px-2 py-1 text-xs border border-green-300 rounded-lg bg-white hover:bg-green-50 disabled:opacity-50"
+              >
+                Next
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
   );
 }
 

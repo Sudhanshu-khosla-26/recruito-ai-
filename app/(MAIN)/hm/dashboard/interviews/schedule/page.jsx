@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import axios from "axios";
+import { toast } from "sonner";
 
 const interviewOptions = [
   "Interview with AI",
@@ -18,7 +19,6 @@ const interviewOptions = [
 const autoSaveOptions = ["Skip", "Hold", "Not Suitable", "Completed"];
 
 export default function CandidateTable() {
-
   const router = useRouter();
   const [candidates, setCandidates] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -35,6 +35,8 @@ export default function CandidateTable() {
   const [selectedCandidates, setSelectedCandidates] = useState([]);
   const [currentPage, setCurrentPage] = useState(1);
   const [candidatesPerPage, setCandidatesPerPage] = useState(20);
+  const [updatingStatus, setUpdatingStatus] = useState(false);
+  const [selectedStatus, setSelectedStatus] = useState("");
 
   const getCandidates = async () => {
     try {
@@ -90,11 +92,11 @@ export default function CandidateTable() {
   const getNextAvailableInterview = (candidate) => {
     const interviews = candidate.interviews_list || [];
     const completedStages = interviews
-      .filter(int => int.status === "completed")
-      .map(int => int.mode?.toLowerCase());
+      .filter((int) => int.status === "completed")
+      .map((int) => int.mode?.toLowerCase());
 
-    const stages = ["wai", "whr", "whm"];  // Changed to lowercase
-    const nextStage = stages.find(stage => !completedStages.includes(stage));
+    const stages = ["wai", "whr", "whm"]; // Changed to lowercase
+    const nextStage = stages.find((stage) => !completedStages.includes(stage));
 
     if (!nextStage) return "Additional Round";
     if (nextStage === "wai") return "Interview with AI";
@@ -105,31 +107,26 @@ export default function CandidateTable() {
   const canScheduleInterview = (candidate, option) => {
     const interviews = candidate.interviews_list || [];
     const completedStages = interviews
-      .filter(int => int.status === "completed")
-      .map(int => int.mode?.toLowerCase());
+      .filter((int) => int.status === "completed")
+      .map((int) => int.mode?.toLowerCase());
 
     const scheduledStages = interviews
-      .filter(int => int.status === "scheduled")
-      .map(int => int.mode?.toLowerCase());
+      .filter((int) => int.status === "scheduled")
+      .map((int) => int.mode?.toLowerCase());
 
     const optionMap = {
-      "Interview with AI": "wai",    // Changed to lowercase
-      "Interview with HR": "whr",    // Changed to lowercase
-      "Interview with HM": "whm"     // Changed to lowercase
+      "Interview with AI": "wai",
+      "Interview with HR": "whr",
+      "Interview with HM": "whm",
     };
 
     const mappedOption = optionMap[option]?.toLowerCase();
 
-    // If already scheduled or completed, can't schedule again
-    if (scheduledStages.includes(mappedOption) || completedStages.includes(mappedOption)) {
-      return false;
-    }
-
-    // Check if previous stages are completed
-    if (mappedOption === "whr" && !completedStages.includes("wai")) {  // Changed to lowercase
-      return false;
-    }
-    if (mappedOption === "whm" && (!completedStages.includes("wai") || !completedStages.includes("whr"))) {  // Changed to lowercase
+    // Only check if already scheduled or completed, remove sequential restrictions
+    if (
+      scheduledStages.includes(mappedOption) ||
+      completedStages.includes(mappedOption)
+    ) {
       return false;
     }
 
@@ -139,13 +136,15 @@ export default function CandidateTable() {
   const getInterviewStatus = (candidate, option) => {
     const interviews = candidate.interviews_list || [];
     const optionMap = {
-      "Interview with AI": "wai",    // Changed to lowercase
-      "Interview with HR": "whr",    // Changed to lowercase
-      "Interview with HM": "whm"     // Changed to lowercase
+      "Interview with AI": "wai", // Changed to lowercase
+      "Interview with HR": "whr", // Changed to lowercase
+      "Interview with HM": "whm", // Changed to lowercase
     };
 
     const mappedOption = optionMap[option]?.toLowerCase();
-    const interview = interviews.find(int => int.mode?.toLowerCase() === mappedOption);
+    const interview = interviews.find(
+      (int) => int.mode?.toLowerCase() === mappedOption,
+    );
 
     return interview?.status;
   };
@@ -153,47 +152,71 @@ export default function CandidateTable() {
   const isInterviewDisabled = (candidate, option) => {
     const interviews = candidate.interviews_list || [];
     const scheduledOrCompleted = interviews
-      .filter(int => int.status === "scheduled" || int.status === "completed")
-      .map(int => int.mode);
+      .filter((int) => int.status === "scheduled" || int.status === "completed")
+      .map((int) => int.mode);
 
     const optionMap = {
       "Interview with AI": "Wai",
       "Interview with HR": "Whr",
-      "Interview with HM": "Whm"
+      "Interview with HM": "Whm",
     };
 
     return scheduledOrCompleted.includes(optionMap[option]);
   };
 
-  const handleScheduleClick = (id) => {
+  const handleScheduleClick = async (c) => {
+    const id = c.id;
+    const jd = c.position;
     const selectedIds = selectedCandidates.length > 1 ? selectedCandidates : [id];
-    selectedIds.forEach((candId) => {
-      const value = interviewSelections[candId];
-      if (!value) return;
-      console.log(`Scheduled for candidate ${candId}: ${value}`);
-    });
 
     const firstValue = interviewSelections[selectedIds[0]];
+
+    // Handle auto-save options (Skip, Hold, Not Suitable, Completed)
+    if (autoSaveOptions.includes(firstValue)) {
+      try {
+        // Update status for all selected candidates
+        await Promise.all(
+          selectedIds.map(candId =>
+            updateApplicationStatus(candId, firstValue)
+          )
+        );
+
+        // Refresh candidates list after update
+        await getCandidates();
+
+        // Clear selections
+        setInterviewSelections({});
+        setSelectedCandidates([]);
+
+        // Optional: Show success message
+        toast.success(`Status updated to "${firstValue}" successfully`);
+      } catch (error) {
+        toast.error("Failed to update status. Please try again.");
+      }
+      return;
+    }
+
+    // Handle interview scheduling options
     switch (firstValue) {
       case "Interview with AI":
-        router.push("/admin/dashboard/interviews/ai");
+        router.push("/admin/dashboard/interviews/ai" + `?jd=${jd}`);
         break;
       case "Interview with HR":
-        router.push("/admin/dashboard/interviews/hr");
+        router.push("/admin/dashboard/interviews/manager");
         break;
       case "Interview with HM":
       case "Additional Round":
-        router.push("/admin/dashboard/interviews/hm");
+        router.push("/admin/dashboard/interviews/manager");
         break;
       default:
-        router.push("/admin/dashboard/interviews/Status");
+        router.push("/admin/dashboard/status");
         break;
     }
   };
 
   const handleSelectCandidate = (id) => {
     setSelectedCandidates((prev) =>
-      prev.includes(id) ? prev.filter((i) => i !== id) : [...prev, id]
+      prev.includes(id) ? prev.filter((i) => i !== id) : [...prev, id],
     );
   };
 
@@ -224,21 +247,42 @@ export default function CandidateTable() {
     setCurrentPage(1);
   };
 
+
+  const updateApplicationStatus = async (applicationId, status) => {
+    try {
+      const res = await axios.patch(`/api/Applications/${applicationId}`, {
+        status: status
+      });
+      return res.data;
+    } catch (err) {
+      console.error("Error updating application:", err);
+      throw err;
+    }
+  };
+
+
+
+
   let filteredCandidates = candidates.filter((c) => {
     const jdMatch = selectedJD ? c.position === selectedJD : true;
     const locMatch = selectedLocation ? c.location === selectedLocation : true;
     const scoreMatch =
       (minScore ? c.score >= Number(minScore) : true) &&
       (maxScore ? c.score <= Number(maxScore) : true);
-    const fromMatch = fromDate ? new Date(c.appliedDate) >= new Date(fromDate) : true;
+    const fromMatch = fromDate
+      ? new Date(c.appliedDate) >= new Date(fromDate)
+      : true;
     const toMatch = toDate ? new Date(c.appliedDate) <= new Date(toDate) : true;
     const searchMatch = c.name.toLowerCase().includes(searchTerm.toLowerCase());
-    return jdMatch && locMatch && scoreMatch && fromMatch && toMatch && searchMatch;
+    const statusMatch = selectedStatus ? c.status === selectedStatus : true;
+    return (
+      jdMatch && locMatch && scoreMatch && fromMatch && toMatch && searchMatch && statusMatch
+    );
   });
 
   if (sortOrder) {
     filteredCandidates = [...filteredCandidates].sort((a, b) =>
-      sortOrder === "asc" ? a.score - b.score : b.score - a.score
+      sortOrder === "asc" ? a.score - b.score : b.score - a.score,
     );
   }
 
@@ -287,10 +331,27 @@ export default function CandidateTable() {
           >
             <option value="">Select JD</option>
             {[...new Set(candidates.map((c) => c.position))].map((pos, idx) => (
-              <option key={idx} value={pos}>
+              <option
+                key={idx}
+                value={pos}
+              >
                 {pos}
               </option>
             ))}
+          </select>
+
+          {/* Status Filter */}
+          <select
+            value={selectedStatus}
+            onChange={(e) => setSelectedStatus(e.target.value)}
+            className="border rounded px-2 py-1 text-xs shadow-sm"
+          >
+            <option value="">All Status</option>
+            <option value="Applied">Applied</option>
+            <option value="Hold">Hold</option>
+            <option value="Skip">Skip</option>
+            <option value="Not Suitable">Not Suitable</option>
+            <option value="Completed">Completed</option>
           </select>
 
           {/* Location Filter */}
@@ -301,7 +362,10 @@ export default function CandidateTable() {
           >
             <option value="">All Locations</option>
             {[...new Set(candidates.map((c) => c.location))].map((loc, idx) => (
-              <option key={idx} value={loc}>
+              <option
+                key={idx}
+                value={loc}
+              >
                 {loc}
               </option>
             ))}
@@ -416,12 +480,14 @@ export default function CandidateTable() {
                   className="pb-2 pr-4 cursor-pointer"
                   onClick={() =>
                     setSortOrder((prev) =>
-                      prev === "asc" ? "desc" : prev === "desc" ? null : "asc"
+                      prev === "asc" ? "desc" : prev === "desc" ? null : "asc",
                     )
                   }
                 >
-                  Score {sortOrder === "asc" ? "↑" : sortOrder === "desc" ? "↓" : ""}
+                  Score{" "}
+                  {sortOrder === "asc" ? "↑" : sortOrder === "desc" ? "↓" : ""}
                 </th>
+                <th className="pb-2 pr-4">Status</th>
                 <th className="pb-2 pr-4">Progress</th>
                 <th className="pb-2 pr-4">Applied Date</th>
                 <th className="pb-2 w-48">Interview</th>
@@ -442,7 +508,10 @@ export default function CandidateTable() {
                         onChange={() => handleSelectCandidate(c.id)}
                       />
                     </td>
-                    <td className="py-2 pr-4 font-medium">{c.name}</td>
+                    <td className="py-2 pr-4 font-medium">
+                      {c.name}
+
+                    </td>
                     <td className="py-2 pr-4 text-blue-600">{c.email}</td>
                     <td className="py-2 pr-4">{c.phone}</td>
                     <td className="py-2 pr-4">{c.position}</td>
@@ -450,29 +519,57 @@ export default function CandidateTable() {
                     <td className="py-2 pr-4">
                       <span
                         className={`px-2 py-0.5 rounded-full text-[10px] ${getScoreColor(
-                          c.score / 10
+                          c.score / 10,
                         )}`}
                       >
                         {c.score / 10}%
                       </span>
                     </td>
                     <td className="py-2 pr-4">
+                      {c.status && c.status !== "Applied" ? (
+                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-medium ${c.status === "Hold" ? "bg-yellow-100 text-yellow-800 border border-yellow-300" :
+                          c.status === "Skip" ? "bg-gray-100 text-gray-800 border border-gray-300" :
+                            c.status === "Not Suitable" ? "bg-red-100 text-red-800 border border-red-300" :
+                              c.status === "Completed" ? "bg-green-100 text-green-800 border border-green-300" :
+                                "bg-blue-100 text-blue-800 border border-blue-300"
+                          }`}>
+                          {c.status}
+                        </span>
+                      ) : (
+                        <span className="text-gray-400 text-[10px]">Active</span>
+                      )}
+                    </td>
+                    <td className="py-2 pr-4">
                       <div className="flex gap-1">
                         {["Wai", "Whr", "Whm"].map((stage, idx) => {
-                          const interview = (c.interviews_list || []).find(int => int.mode === stage);
+                          const interview = (c.interviews_list || []).find(
+                            (int) => int.mode === stage,
+                          );
                           const status = interview?.status;
+                          // Update this line to check for Skip status from application
+                          const isSkipped = c.status === "Skip";
+
                           return (
                             <div
                               key={idx}
-                              className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] ${status === "completed"
-                                ? "bg-green-500 text-white"
-                                : status === "scheduled"
-                                  ? "bg-blue-500 text-white"
-                                  : "bg-gray-200 text-gray-500"
+                              className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-medium ${isSkipped
+                                ? "bg-gray-300 text-gray-600 line-through"
+                                : status === "completed"
+                                  ? "bg-green-500 text-white"
+                                  : status === "scheduled"
+                                    ? "bg-blue-500 text-white"
+                                    : "bg-gray-200 text-gray-500"
                                 }`}
-                              title={`${stage.toUpperCase()}: ${status || "pending"}`}
+                              title={`${stage.toUpperCase()}: ${isSkipped ? "Application Skipped" : status || "pending"
+                                }`}
                             >
-                              {status === "completed" ? "✓" : status === "scheduled" ? "⏰" : idx + 1}
+                              {isSkipped
+                                ? "✕"
+                                : status === "completed"
+                                  ? "✓"
+                                  : status === "scheduled"
+                                    ? "⏰"
+                                    : idx + 1}
                             </div>
                           );
                         })}
@@ -486,59 +583,67 @@ export default function CandidateTable() {
                           onChange={(e) =>
                             handleDropdownChange(c.id, e.target.value)
                           }
-                          className="border rounded px-1 py-0.5 text-[10px] flex-shrink-0 shadow-sm"
+                          disabled={["Skip", "Not Suitable", "Completed"].includes(c.status)}
+                          className={`border rounded px-1 py-0.5 text-[10px] flex-shrink-0 shadow-sm ${["Skip", "Not Suitable", "Completed"].includes(c.status)
+                            ? "bg-gray-100 cursor-not-allowed"
+                            : ""
+                            }`}
                         >
                           <option value="">Select</option>
                           {interviewOptions.map((opt, i) => {
                             const canSchedule = canScheduleInterview(c, opt);
                             const status = getInterviewStatus(c, opt);
                             const isNext = opt === getNextAvailableInterview(c);
-                            const disabled = !canSchedule && !autoSaveOptions.includes(opt);
+                            const disabled =
+                              !canSchedule && !autoSaveOptions.includes(opt);
 
                             return (
-                              <option key={i} value={opt} disabled={disabled}>
+                              <option
+                                key={i}
+                                value={opt}
+                                disabled={disabled}
+                              >
                                 {opt}
                                 {status === "completed" ? " ✓" : ""}
                                 {status === "scheduled" ? " (Scheduled)" : ""}
-                                {isNext && !status ? " (Next)" : ""}
-                                {!canSchedule && !status && !autoSaveOptions.includes(opt) ? " (Complete previous first)" : ""}
                               </option>
                             );
                           })}
                         </select>
 
                         <div className="w-20">
-                          {interviewSelections[c.id] && (
+                          {interviewSelections[c.id] &&
                             (() => {
                               const selectedOption = interviewSelections[c.id];
-                              const canSchedule = canScheduleInterview(c, selectedOption);
-                              const status = getInterviewStatus(c, selectedOption);
-                              const isAutoSave = autoSaveOptions.includes(selectedOption);
+                              const canSchedule = canScheduleInterview(
+                                c,
+                                selectedOption,
+                              );
+                              const status = getInterviewStatus(
+                                c,
+                                selectedOption,
+                              );
+                              const isAutoSave =
+                                autoSaveOptions.includes(selectedOption);
 
                               return (
                                 <button
-                                  onClick={() => handleScheduleClick(c.id)}
-                                  disabled={!canSchedule && !isAutoSave}
-                                  className={`px-1 py-0.5 rounded text-white text-[10px] w-full shadow-sm ${status === "scheduled"
-                                    ? "bg-gray-400 cursor-not-allowed"
-                                    : !canSchedule && !isAutoSave
-                                      ? "bg-gray-400 cursor-not-allowed"
-                                      : isAutoSave
-                                        ? "bg-green-500 hover:bg-green-600"
-                                        : "bg-blue-500 hover:bg-blue-600"
+                                  onClick={() => handleScheduleClick(c)}
+                                  disabled={(!canSchedule && !isAutoSave) || updatingStatus}
+                                  className={`px-1 py-0.5 rounded text-white text-[10px] w-full shadow-sm ${updatingStatus ? "bg-gray-400 cursor-wait" :
+                                    status === "scheduled" ? "bg-gray-400 cursor-not-allowed" :
+                                      !canSchedule && !isAutoSave ? "bg-gray-400 cursor-not-allowed" :
+                                        isAutoSave ? "bg-green-500 hover:bg-green-600" :
+                                          "bg-blue-500 hover:bg-blue-600"
                                     }`}
                                 >
-                                  {status === "scheduled"
-                                    ? "Scheduled"
-                                    : !canSchedule && !isAutoSave
-                                      ? "Locked"
-                                      : isAutoSave
-                                        ? "Save"
-                                        : "Schedule"}
+                                  {updatingStatus ? "Updating..." :
+                                    status === "scheduled" ? "Scheduled" :
+                                      !canSchedule && !isAutoSave ? "Locked" :
+                                        isAutoSave ? "Save" : "Schedule"}
                                 </button>
                               );
-                            })()
-                          )}
+                            })()}
                         </div>
                       </div>
                     </td>
@@ -546,7 +651,10 @@ export default function CandidateTable() {
                 ))
               ) : (
                 <tr>
-                  <td colSpan={10} className="py-4 text-center text-gray-500">
+                  <td
+                    colSpan={10}
+                    className="py-4 text-center text-gray-500"
+                  >
                     No candidates found.
                   </td>
                 </tr>

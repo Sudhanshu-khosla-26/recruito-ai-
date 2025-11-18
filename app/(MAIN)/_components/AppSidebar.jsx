@@ -90,7 +90,7 @@ const hrSideBarOptions = [
         icon: LayoutDashboardIcon,
     },
     {
-        name: "interviews",
+        name: "Scheduled Interviews",
         path: "/hr/dashboard/interviews/schedule",
         icon: Building2,
 
@@ -139,6 +139,11 @@ const hhrSideBarOptions = [
         path: "/hhr/reports",
         icon: FileBarChart,
     },
+    {
+        name: "Feedback",
+        path: "/hm/feedback",
+        icon: CheckCircle,
+    },
 ];
 
 // HM (Hiring Manager) Sidebar Options
@@ -148,19 +153,19 @@ const hmSideBarOptions = [
         path: "/hm/dashboard",
         icon: LayoutDashboardIcon,
     },
-    {
-        name: "My Openings",
-        path: "/hm/openings",
-        icon: FileText,
-    },
+    // {
+    //     name: "My Openings",
+    //     path: "/hm/openings",
+    //     icon: FileText,
+    // },
     {
         name: "Candidates",
-        path: "/hm/candidates",
+        path: "/hm/dashboard/status",
         icon: Users,
     },
     {
         name: "Scheduled Interviews",
-        path: "/hm/interviews",
+        path: "/hm/dashboard/interviews/schedule",
         icon: Calendar,
     },
     {

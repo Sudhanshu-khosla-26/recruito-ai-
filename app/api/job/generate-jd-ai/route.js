@@ -45,7 +45,7 @@ IMPORTANT: Return ONLY valid JSON. Do not include extra text, markdown, or expla
 
 
         const genAI = new GoogleGenerativeAI(process.env.NEXT_PUBLIC_GEMINI_API_KEY);
-        const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash-001" });
+        const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
 
 
 
