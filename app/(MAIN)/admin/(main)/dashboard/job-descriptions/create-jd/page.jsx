@@ -1,5 +1,7 @@
 "use client";
 import React, { useState, useRef } from 'react';
+import { useRouter } from 'next/navigation';
+import { toast } from 'sonner';
 
 const Input = ({ label, className, ...props }) => (
     <div>
@@ -47,6 +49,8 @@ const SkillTag = ({ skill }) => (
 );
 
 export default function App() {
+    const router = useRouter();
+
     const [formData, setFormData] = useState({
         jobTitle: '',
         location: '',
@@ -219,7 +223,10 @@ export default function App() {
                 skills: '',
                 others: '',
             });
-            alert("Job Description Saved Successfully!");
+
+            toast.success("Job Description Saved Successfully!");
+            router.push('/admin/dashboard/job-descriptions');
+            setUploadedFiles([]);
             setShowSaveButton(false);
         } catch (error) {
             console.error("Error saving:", error);

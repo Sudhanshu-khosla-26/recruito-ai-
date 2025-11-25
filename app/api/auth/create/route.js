@@ -39,6 +39,8 @@ export async function POST(request) {
             await userDoc.set(newUser);
         }
 
+        await getAuth().setCustomUserClaims(decoded.uid, { role });
+
         return NextResponse.json({ message: "User created successfully", ok: true }, { status: 201 });
 
     } catch (error) {

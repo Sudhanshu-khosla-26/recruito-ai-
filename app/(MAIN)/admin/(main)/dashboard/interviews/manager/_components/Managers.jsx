@@ -10,6 +10,22 @@ function Managers() {
   const searchParams = useSearchParams();
   const jdTitle = searchParams.get("jd");
   const candidateId = searchParams.get("candidate_id");
+  const modeParam = searchParams.get("mode");
+
+  useEffect(() => {
+    if (modeParam) {
+      const modeMap = {
+        'hr': 'Human Resource',
+        'hm': 'Hiring Manager',
+        'additional': 'Additional Round Manager'
+      };
+
+      const mappedManager = modeMap[modeParam.toLowerCase()];
+      if (mappedManager) {
+        setManager(mappedManager);
+      }
+    }
+  }, [modeParam]);
 
   // JD State
   const [jdList, setJdList] = useState([]);
@@ -134,7 +150,13 @@ function Managers() {
       return false;
     }
 
-    const selectedMode = manager === "Hiring Manager" ? "Whm" : manager === "Human Resource" ? "Whr" : null;
+    const modeMap = {
+      'Hiring Manager': 'Whm',
+      'Human Resource': 'Whr',
+      'Additional Round Manager': 'Whm'
+    };
+
+    const selectedMode = modeMap[manager];
 
     // If no manager selected, don't filter
     if (!selectedMode) return false;
@@ -256,7 +278,19 @@ function Managers() {
     try {
       setAvailabilityLoading(true);
 
-      const selectedOption = manager === "Hiring Manager" ? "Whm" : "Whr";
+      // Map manager selection to correct mode
+      const modeMap = {
+        'Hiring Manager': 'Whm',
+        'Human Resource': 'Whr',
+        'Additional Round Manager': 'Whm'
+      };
+
+      const selectedOption = modeMap[manager];
+
+      if (!selectedOption) {
+        alert('Please select a valid manager type');
+        return;
+      }
 
       const response = await axios.post("/api/calender/slots", {
         interviewer_email: hmEmail,
@@ -290,13 +324,26 @@ function Managers() {
     }
   };
 
+
   const isFormComplete = manager && hmEmail && fromDate && toDate && duration;
 
   const handleBookInterview = async () => {
     try {
       setBookingLoading(true);
 
-      const selectedOption = manager === "Hiring Manager" ? "Whm" : "Whr";
+      // Map manager selection to correct mode
+      const modeMap = {
+        'Hiring Manager': 'Whm',
+        'Human Resource': 'Whr',
+        'Additional Round Manager': 'Whm' // Additional rounds use same as HM
+      };
+
+      const selectedOption = modeMap[manager];
+
+      if (!selectedOption) {
+        alert('Please select a valid manager type');
+        return;
+      }
 
       const response = await axios.post("/api/calender/book", {
         interviewer_email: hmEmail,

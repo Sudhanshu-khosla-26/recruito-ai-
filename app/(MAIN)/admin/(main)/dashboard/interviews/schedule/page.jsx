@@ -4,6 +4,7 @@ import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import axios from "axios";
 import { toast } from "sonner";
+import { useUser } from "@/provider"
 
 const interviewOptions = [
   "Interview with AI",
@@ -20,6 +21,7 @@ const autoSaveOptions = ["Skip", "Hold", "Not Suitable", "Completed"];
 
 export default function CandidateTable() {
   const router = useRouter();
+  const user = useUser();
   const [candidates, setCandidates] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -35,15 +37,45 @@ export default function CandidateTable() {
   const [selectedCandidates, setSelectedCandidates] = useState([]);
   const [currentPage, setCurrentPage] = useState(1);
   const [candidatesPerPage, setCandidatesPerPage] = useState(20);
+  const [interviewAvailability, setInterviewAvailability] = useState({});
+  const [loadingAvailability, setLoadingAvailability] = useState({});
   const [updatingStatus, setUpdatingStatus] = useState(false);
   const [selectedStatus, setSelectedStatus] = useState("");
+
+
+  const fetchInterviewAvailability = async (applicationId) => {
+    if (interviewAvailability[applicationId] || loadingAvailability[applicationId]) {
+      return;
+    }
+
+    setLoadingAvailability(prev => ({ ...prev, [applicationId]: true }));
+
+    try {
+      const res = await axios.get(
+        `/api/Applications/${applicationId}/interview-availability`
+      );
+      setInterviewAvailability(prev => ({
+        ...prev,
+        [applicationId]: res.data
+      }));
+    } catch (err) {
+      console.error("Error fetching interview availability:", err);
+    } finally {
+      setLoadingAvailability(prev => ({ ...prev, [applicationId]: false }));
+    }
+  };
+
+
+  console.log("user", user)
 
   const getCandidates = async () => {
     try {
       setLoading(true);
       const res = await axios.get(
-        `/api/Applications/get-all-candidates?company_id=uRTTg5rRpYWsutJQ18v6`
+        `/api/Applications/get-all-candidates?company_id=${user?.user?.company_id}`
       );
+
+      console.log("API Response:", res.data);
 
       if (res.data && res.data.applications) {
         const formattedCandidates = res.data.applications.map((app) => ({
@@ -103,12 +135,15 @@ export default function CandidateTable() {
     if (nextStage === "whr") return "Interview with HR";
     if (nextStage === "whm") return "Interview with HM";
   };
+  const getAILimitMessage = (candidate) => {
+    const availability = interviewAvailability[candidate.id];
+    if (!availability) return null;
+    return availability.message;
+  };
+
 
   const canScheduleInterview = (candidate, option) => {
     const interviews = candidate.interviews_list || [];
-    const completedStages = interviews
-      .filter((int) => int.status === "completed")
-      .map((int) => int.mode?.toLowerCase());
 
     const scheduledStages = interviews
       .filter((int) => int.status === "scheduled")
@@ -122,12 +157,18 @@ export default function CandidateTable() {
 
     const mappedOption = optionMap[option]?.toLowerCase();
 
-    // Only check if already scheduled or completed, remove sequential restrictions
-    if (
-      scheduledStages.includes(mappedOption) ||
-      completedStages.includes(mappedOption)
-    ) {
+    // Only check if already scheduled (not completed)
+    // This allows multiple interviews if not currently scheduled
+    if (scheduledStages.includes(mappedOption)) {
       return false;
+    }
+
+    // Check AI interview limit from availability API
+    if (option === "Interview with AI") {
+      const availability = interviewAvailability[candidate.id];
+      if (availability && !availability.can_schedule_ai) {
+        return false;
+      }
     }
 
     return true;
@@ -151,8 +192,10 @@ export default function CandidateTable() {
 
   const isInterviewDisabled = (candidate, option) => {
     const interviews = candidate.interviews_list || [];
-    const scheduledOrCompleted = interviews
-      .filter((int) => int.status === "scheduled" || int.status === "completed")
+
+    // Only check for scheduled status, not completed
+    const scheduledInterviews = interviews
+      .filter((int) => int.status === "scheduled")
       .map((int) => int.mode);
 
     const optionMap = {
@@ -161,7 +204,7 @@ export default function CandidateTable() {
       "Interview with HM": "Whm",
     };
 
-    return scheduledOrCompleted.includes(optionMap[option]);
+    return scheduledInterviews.includes(optionMap[option]);
   };
 
   const handleScheduleClick = async (c) => {
@@ -196,22 +239,32 @@ export default function CandidateTable() {
       return;
     }
 
-    // Handle interview scheduling options
+
+    setInterviewAvailability(prev => {
+      const newState = { ...prev };
+      delete newState[id];
+      return newState;
+    });
+
+    // Handle interview scheduling options with mode parameter
     switch (firstValue) {
       case "Interview with AI":
-        router.push("/admin/dashboard/interviews/ai" + `?jd=${jd}&candidate_id=${id}`);
+        router.push(`/admin/dashboard/interviews/ai?jd=${jd}&candidate_id=${id}&mode=ai`);
         break;
       case "Interview with HR":
-        router.push("/admin/dashboard/interviews/manager" + `?jd=${jd}&candidate_id=${id}`);
+        router.push(`/admin/dashboard/interviews/manager?jd=${jd}&candidate_id=${id}&mode=hr`);
         break;
       case "Interview with HM":
+        router.push(`/admin/dashboard/interviews/manager?jd=${jd}&candidate_id=${id}&mode=hm`);
+        break;
       case "Additional Round":
-        router.push("/admin/dashboard/interviews/manager" + `?jd=${jd}&candidate_id=${id}`);
+        router.push(`/admin/dashboard/interviews/manager?jd=${jd}&candidate_id=${id}&mode=additional`);
         break;
       default:
         router.push("/admin/dashboard/status");
         break;
     }
+
   };
 
   const handleSelectCandidate = (id) => {
@@ -580,22 +633,17 @@ export default function CandidateTable() {
                       <div className="flex items-center gap-1">
                         <select
                           value={interviewSelections[c.id] || ""}
-                          onChange={(e) =>
-                            handleDropdownChange(c.id, e.target.value)
-                          }
-
-                          className={`border rounded px-1 py-0.5 text-[10px] flex-shrink-0 shadow-sm 
-                            
-                            `}
+                          onChange={(e) => handleDropdownChange(c.id, e.target.value)}
+                          onFocus={() => fetchInterviewAvailability(c.id)} // Fetch on focus
+                          className="border rounded px-1 py-0.5 text-[10px] flex-shrink-0 shadow-sm"
                         >
                           <option value="">Select</option>
                           {interviewOptions.map((opt, i) => {
                             const canSchedule = canScheduleInterview(c, opt);
                             const status = getInterviewStatus(c, opt);
-                            const isNext = opt === getNextAvailableInterview(c);
-                            const disabled =
-                              !canSchedule && !autoSaveOptions.includes(opt);
-
+                            const isAILimitReached = opt === "Interview with AI" &&
+                              interviewAvailability[c.id]?.can_schedule_ai === false;
+                            const disabled = !canSchedule && !autoSaveOptions.includes(opt);
                             return (
                               <option
                                 key={i}
@@ -605,10 +653,21 @@ export default function CandidateTable() {
                                 {opt}
                                 {status === "completed" ? " ✓" : ""}
                                 {status === "scheduled" ? " (Scheduled)" : ""}
+                                {isAILimitReached ? " (Limit reached)" : ""}
                               </option>
                             );
                           })}
                         </select>
+
+                        {/* Show AI limit indicator */}
+                        {interviewAvailability[c.id] && (
+                          <span
+                            className="text-[9px] text-gray-500"
+                            title={getAILimitMessage(c) || ""}
+                          >
+                            AI: {interviewAvailability[c.id].ai_total}/{interviewAvailability[c.id].max_ai_interviews}
+                          </span>
+                        )}
 
                         <div className="w-20">
                           {interviewSelections[c.id] &&

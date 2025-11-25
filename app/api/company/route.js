@@ -47,6 +47,26 @@ function validateFile(file, allowedTypes, maxSizeInMB = 5) {
     }
 }
 
+// ✅ Helper: Create default company settings
+async function createDefaultCompanySettings(companyId) {
+    const defaultSettings = {
+        company_id: companyId,
+        // Interview Limits
+        max_ai_interviews: 3,        // 1-3, configurable by admin
+        allow_additional_rounds: true,
+        max_additional_rounds: null, // null = unlimited
+        // Notification Settings
+        reminder_hours_before: 24,
+        // Application Settings
+        auto_reject_below_score: null,  // null = no auto-reject
+        created_at: FieldValue.serverTimestamp(),
+        updated_at: FieldValue.serverTimestamp(),
+    };
+
+    const settingsRef = await adminDB.collection("company_settings").add(defaultSettings);
+    return { id: settingsRef.id, ...defaultSettings };
+}
+
 export async function POST(request) {
     try {
         const formData = await request.formData();
@@ -61,6 +81,9 @@ export async function POST(request) {
         const description = formData.get("description");
         const address = formData.get("address");
         const created_by_id = formData.get("created_by_id");
+
+        // Optional: Allow custom initial settings
+        const initial_max_ai_interviews = formData.get("max_ai_interviews");
 
         const logoFile = formData.get("logofile");
         const documentFiles = formData.getAll("documents");
@@ -140,6 +163,7 @@ export async function POST(request) {
         const documentUploadResults = await Promise.all(documentUploadPromises);
         const uploadedDocuments = documentUploadResults.filter((res) => res !== null);
 
+        // Company data (clean, without settings)
         const companyData = {
             company_name: company_name.trim(),
             admin_email: admin_email.trim(),
@@ -157,13 +181,30 @@ export async function POST(request) {
             created_by_id: created_by_id,
         };
 
-        const docRef = await adminDB.collection("companies").add(companyData);
+        // Create company first
+        const companyRef = await adminDB.collection("companies").add(companyData);
+        const companyId = companyRef.id;
+
+        // Create default settings for this company
+        const settings = await createDefaultCompanySettings(companyId);
+
+        // If custom initial max_ai_interviews was provided, update it
+        if (initial_max_ai_interviews) {
+            const maxAi = parseInt(initial_max_ai_interviews);
+            if (maxAi >= 1 && maxAi <= 3) {
+                await adminDB
+                    .collection("company_settings")
+                    .doc(settings.id)
+                    .update({ max_ai_interviews: maxAi });
+            }
+        }
 
         return NextResponse.json(
             {
                 ok: true,
-                id: docRef.id,
-                message: "Company created successfully.",
+                id: companyId,
+                settings_id: settings.id,
+                message: "Company created successfully with default settings.",
             },
             { status: 201 }
         );

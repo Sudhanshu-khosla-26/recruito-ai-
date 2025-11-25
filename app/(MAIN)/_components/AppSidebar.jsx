@@ -34,17 +34,21 @@ const adminSideBarOptions = [
         name: "interviews",
         path: "/admin/dashboard/interviews/schedule",
         icon: Building2,
-
     },
     {
         name: "Job Descriptions",
         path: "/admin/dashboard/job-descriptions",
-        icon: Settings,
+        icon: FileText,
     },
     {
         name: "status",
         path: "/admin/dashboard/status",
         icon: FileBarChart,
+    },
+    {
+        name: "Settings",
+        path: "/admin/dashboard/settings",
+        icon: Settings,
     },
 ];
 

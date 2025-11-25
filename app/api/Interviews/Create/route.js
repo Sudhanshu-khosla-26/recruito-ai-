@@ -47,15 +47,15 @@ export async function POST(request) {
             return NextResponse.json({ error: "Job not found." }, { status: 404 });
         }
 
-        const duplicateCheck = await adminDB.collection("interviews")
-            .where("application_id", "==", application_id)
-            .where("job_id", "==", job_id)
-            .get();
+        // const duplicateCheck = await adminDB.collection("interviews")
+        //     .where("application_id", "==", application_id)
+        //     .where("job_id", "==", job_id)
+        //     .get();
 
-        if (!duplicateCheck.empty) {
-            console.warn("[interviews.create] duplicate interview detected for application:", application_id);
-            return NextResponse.json({ error: "An interview for this application and job already exists." }, { status: 409 });
-        }
+        // if (!duplicateCheck.empty) {
+        //     console.warn("[interviews.create] duplicate interview detected for application:", application_id);
+        //     return NextResponse.json({ error: "An interview for this application and job already exists." }, { status: 409 });
+        // }
 
         // --- 5) Create interview document & return id ---
         const interviewPayload = {

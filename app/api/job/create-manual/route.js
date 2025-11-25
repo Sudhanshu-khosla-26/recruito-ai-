@@ -6,24 +6,32 @@ import { FieldValue } from "firebase-admin/firestore";
 
 export async function POST(request) {
 
-    // const session = request.cookies.get("session")?.value;
-    // if (!session) {
-    //     return NextResponse.json({ error: "No session found" }, { status: 400 });
-    // }
-    // let decodedUser;
-    // try {
-    //     decodedUser = await getAuth().verifyIdToken(session);
-    // } catch {
-    //     return NextResponse.json({ error: "Invalid token" }, { status: 403 });
-    // }
+    const session = request.cookies.get("session")?.value;
+    if (!session) {
+        return NextResponse.json({ error: "No session found" }, { status: 400 });
+    }
 
-    // console.log(decodedUser);
+    let decodedUser;
+    try {
+        decodedUser = await getAuth().verifySessionCookie(session, true);
+        const user = await adminDB.collection("users").doc(decodedUser.uid).get();
+        if (!user.exists) {
+            return NextResponse.json({ error: "User not found" }, { status: 404 });
+        }
+        const data = { ...user.data(), uid: user.id };
+        decodedUser = data;
+    } catch (err) {
+        console.log(err);
+        return NextResponse.json({ error: "Invalid token" }, { status: 403 });
+    }
 
-    // const validRoles = ["Admin", "HHR", "HR", "HM", "recruiter"];
+    console.log(decodedUser);
 
-    // if (!validRoles.includes(decodedUser.role)) {
-    //     return NextResponse.json({ error: "User role is not valid" }, { status: 403 });
-    // }
+    const validRoles = ["Admin", "HHR", "HR", "HM", "recruiter"];
+
+    if (!validRoles.includes(decodedUser.role)) {
+        return NextResponse.json({ error: "User role is not valid" }, { status: 403 });
+    }
 
     try {
         const { title, key_skills, location, experience_required, ctc_range, companyName, good_to_have_skills, description } = await request.json();
@@ -99,11 +107,12 @@ export async function POST(request) {
             description: description,
             created_at: FieldValue.serverTimestamp(),
             status: "active",
-            // created_by_id: decodedUser.uid,
-            // company_id: decodedUser.company_id
+            created_by_id: decodedUser.uid,
+            company_id: decodedUser.company_id,
             selected_candidates: []
         }
 
+        console.log("Job Data to be added:", data);
         const jobdata = await adminDB.collection("jobs").add(data);
 
         if (!jobdata) {

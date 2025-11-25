@@ -4,7 +4,7 @@ import { adminDB } from "@/lib/firebase-admin";
 export async function GET(req, { params }) {
     try {
         console.log("Params received:", params);
-        const { interview_id } = params; // no need for await here
+        const { interview_id } = await params; // no need for await here
 
         const questionSnapshot = await adminDB
             .collection("interview_qna")

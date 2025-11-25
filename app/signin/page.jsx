@@ -22,6 +22,7 @@ const ROLE_DASHBOARD_MAP = {
   hadmin: "/hadmin/dashboard",
   jobseeker: "/candidate/dashboard",
   hr: "/hr/dashboard",
+  hm: "/hm/dashboard",
 };
 
 function Login() {
@@ -76,12 +77,8 @@ function Login() {
       });
 
       // Get user data and redirect
-      const res = await axios.post("/api/auth/getuser", {
-        uid: userCred.user.uid,
-      });
-
-      const userData = res.data;
-      const userRole = userData?.user?.role?.toLowerCase();
+      const tokenResult = await userCred.user.getIdTokenResult(true);
+      const userRole = tokenResult.claims.role?.toLowerCase();
       const correctDashboard = ROLE_DASHBOARD_MAP[userRole];
 
       window.location.href = correctDashboard;

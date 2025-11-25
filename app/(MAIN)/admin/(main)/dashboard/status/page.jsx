@@ -2,6 +2,8 @@
 
 import React, { useState, useEffect } from "react";
 import { ChevronLeft, ChevronRight, User, Mail, Phone, MapPin, Calendar, FileText, Award, CheckCircle, Clock, Circle, Loader2 } from "lucide-react";
+import { useUser } from "@/provider";
+
 
 export default function InterviewStatusPage() {
   const [candidates, setCandidates] = useState([]);
@@ -11,6 +13,8 @@ export default function InterviewStatusPage() {
   const [currentStage, setCurrentStage] = useState(0);
   const [interviewDetails, setInterviewDetails] = useState({});
   const [loadingInterview, setLoadingInterview] = useState({});
+  const user = useUser();
+  console.log("User in InterviewStatusPage:", user);
 
   const stages = [
     { id: "wai", name: "AI Interview", label: "Interview with AI" },
@@ -22,7 +26,7 @@ export default function InterviewStatusPage() {
     try {
       setLoading(true);
       const res = await fetch(
-        `/api/Applications/get-all-candidates?company_id=uRTTg5rRpYWsutJQ18v6`
+        `/api/Applications/get-all-candidates?company_id=${user.user.company_id}`
       );
 
       if (!res.ok) throw new Error("Failed to fetch candidates");
