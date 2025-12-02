@@ -5,6 +5,8 @@ import { Calendar, Search, Clock, Video, Bot, X, AlertCircle, RefreshCw, CheckCi
 
 const CandidateInterviewDashboard = () => {
     const [searchQuery, setSearchQuery] = useState('')
+    const [showDetailsModal, setShowDetailsModal] = useState(false)
+    const [detailsInterview, setDetailsInterview] = useState(null)
     const [interviews, setInterviews] = useState([])
     const [loading, setLoading] = useState(true)
     const [actionLoading, setActionLoading] = useState(null)
@@ -54,6 +56,47 @@ const CandidateInterviewDashboard = () => {
             month: 'short',
             year: 'numeric'
         })
+    }
+
+    const getInterviewStatus = (interview) => {
+        if (interview.mode === 'Wai') {
+            return { canStart: true, message: 'Ready to start' }
+        }
+
+        const now = new Date()
+        const startTime = getDateFromTimestamp(interview.start_time)
+        const endTime = getDateFromTimestamp(interview.end_time)
+
+        if (!startTime) return { canStart: false, message: 'Invalid time' }
+
+        const timeDiff = (startTime - now) / (1000 * 60) // minutes
+
+        if (timeDiff > 15) {
+            return {
+                canStart: false,
+                message: `Interview starts in ${Math.floor(timeDiff)} minutes`,
+                showDetails: true
+            }
+        } else if (timeDiff > 0) {
+            return {
+                canStart: true,
+                message: 'Interview starting soon - You can join now!',
+                urgent: true
+            }
+        } else if (now >= startTime && now <= endTime) {
+            return {
+                canStart: true,
+                message: 'Interview is LIVE - Join now!',
+                urgent: true,
+                isLive: true
+            }
+        } else {
+            return {
+                canStart: false,
+                message: 'Interview time has passed',
+                showDetails: true
+            }
+        }
     }
 
     const getDateFromTimestamp = (timestamp) => {
@@ -358,8 +401,8 @@ const CandidateInterviewDashboard = () => {
                                                         key={idx}
                                                         onClick={() => setSelectedSlot(slot)}
                                                         className={`px-3 py-2 rounded-lg text-sm font-medium transition-all ${selectedSlot === slot
-                                                                ? 'bg-blue-600 text-white shadow-md'
-                                                                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                                                            ? 'bg-blue-600 text-white shadow-md'
+                                                            : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                                                             }`}
                                                     >
                                                         {slot.time}
@@ -413,6 +456,139 @@ const CandidateInterviewDashboard = () => {
                 </div>
             )}
 
+            {/* Interview Details Modal */}
+            {showDetailsModal && detailsInterview && (
+                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+                    <div className="bg-white rounded-xl shadow-2xl max-w-lg w-full">
+                        <div className="bg-gradient-to-r from-blue-600 to-blue-700 p-4 text-white rounded-t-xl">
+                            <div className="flex items-center justify-between">
+                                <h3 className="text-xl font-bold">Interview Details</h3>
+                                <button
+                                    onClick={() => setShowDetailsModal(false)}
+                                    className="text-white hover:bg-white/20 rounded-lg p-1"
+                                >
+                                    <X className="w-5 h-5" />
+                                </button>
+                            </div>
+                        </div>
+
+                        <div className="p-6 space-y-4">
+                            <div className="flex items-center gap-3 pb-3 border-b">
+                                {getInterviewTypeInfo(detailsInterview.mode).icon === Bot ? (
+                                    <Bot className="w-10 h-10 text-purple-600" />
+                                ) : (
+                                    <User className="w-10 h-10 text-blue-600" />
+                                )}
+                                <div>
+                                    <h4 className="font-bold text-gray-800">
+                                        {getInterviewTypeInfo(detailsInterview.mode).label}
+                                    </h4>
+                                    <p className="text-sm text-gray-600">
+                                        {detailsInterview.mode === 'Wai'
+                                            ? 'AI Assessment'
+                                            : detailsInterview.hr_email || detailsInterview.hm_email}
+                                    </p>
+                                </div>
+                            </div>
+
+                            <div className="space-y-3">
+                                <div className="flex items-start gap-3">
+                                    <Calendar className="w-5 h-5 text-blue-500 mt-0.5" />
+                                    <div>
+                                        <p className="text-xs text-gray-500">Date</p>
+                                        <p className="font-semibold text-gray-800">
+                                            {detailsInterview.mode === 'Wai'
+                                                ? formatDate(detailsInterview.scheduled_at || detailsInterview.created_at)
+                                                : formatDate(detailsInterview.start_time)}
+                                        </p>
+                                    </div>
+                                </div>
+
+                                {detailsInterview.mode !== 'Wai' && (
+                                    <div className="flex items-start gap-3">
+                                        <Clock className="w-5 h-5 text-green-500 mt-0.5" />
+                                        <div>
+                                            <p className="text-xs text-gray-500">Time</p>
+                                            <p className="font-semibold text-gray-800">
+                                                {formatTime(detailsInterview.start_time)} - {formatTime(detailsInterview.end_time)}
+                                            </p>
+                                        </div>
+                                    </div>
+                                )}
+
+                                <div className="flex items-start gap-3">
+                                    <Clock className="w-5 h-5 text-purple-500 mt-0.5" />
+                                    <div>
+                                        <p className="text-xs text-gray-500">Duration</p>
+                                        <p className="font-semibold text-gray-800">
+                                            {detailsInterview.mode === 'Wai'
+                                                ? `${detailsInterview.duration_minutes || 30} minutes`
+                                                : getDuration(detailsInterview.start_time, detailsInterview.end_time)}
+                                        </p>
+                                    </div>
+                                </div>
+
+                                {detailsInterview.mode !== 'Wai' && (() => {
+                                    const status = getInterviewStatus(detailsInterview)
+                                    return (
+                                        <div className={`p-3 rounded-lg border ${status.urgent
+                                            ? 'bg-red-50 border-red-200'
+                                            : status.canStart
+                                                ? 'bg-green-50 border-green-200'
+                                                : 'bg-yellow-50 border-yellow-200'
+                                            }`}>
+                                            <div className="flex items-center gap-2">
+                                                <AlertCircle className={`w-5 h-5 ${status.urgent ? 'text-red-600' : 'text-yellow-600'
+                                                    }`} />
+                                                <p className={`text-sm font-semibold ${status.urgent ? 'text-red-800' : 'text-yellow-800'
+                                                    }`}>
+                                                    {status.message}
+                                                </p>
+                                            </div>
+                                        </div>
+                                    )
+                                })()}
+                            </div>
+
+                            <div className="flex gap-2 pt-4">
+                                {detailsInterview.mode === 'Wai' ? (
+                                    <a
+                                        href={`/interview/${detailsInterview.id}/start`}
+                                        className="flex-1 bg-gradient-to-r from-purple-600 to-purple-700 text-white py-3 rounded-lg text-sm font-bold hover:from-purple-700 hover:to-purple-800 transition-all shadow-md hover:shadow-lg flex items-center justify-center gap-2"
+                                    >
+                                        <Bot className="w-5 h-5" />
+                                        Start AI Interview
+                                    </a>
+                                ) : (
+                                    <>
+                                        {getInterviewStatus(detailsInterview).canStart && detailsInterview.meeting_link ? (
+                                            <a
+                                                href={detailsInterview.meeting_link}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                className="flex-1 bg-gradient-to-r from-blue-600 to-blue-700 text-white py-3 rounded-lg text-sm font-bold hover:from-blue-700 hover:to-blue-800 transition-all shadow-md hover:shadow-lg flex items-center justify-center gap-2"
+                                            >
+                                                <Video className="w-5 h-5" />
+                                                {getInterviewStatus(detailsInterview).isLive ? 'Join Now (LIVE)' : 'Join Meeting'}
+                                            </a>
+                                        ) : (
+                                            <button
+                                                disabled
+                                                className="flex-1 bg-gray-300 text-gray-600 py-3 rounded-lg text-sm font-bold cursor-not-allowed flex items-center justify-center gap-2"
+                                            >
+                                                <Video className="w-5 h-5" />
+                                                Not Available Yet
+                                            </button>
+                                        )}
+                                    </>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+                </div >
+            )
+            }
+
             <div className="max-w-7xl mx-auto">
                 {/* Header */}
                 <div className="mb-6">
@@ -459,8 +635,8 @@ const CandidateInterviewDashboard = () => {
                         <button
                             onClick={() => setActiveTab('upcoming')}
                             className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all ${activeTab === 'upcoming'
-                                    ? 'bg-blue-600 text-white shadow-sm'
-                                    : 'bg-white text-gray-600 hover:bg-gray-50'
+                                ? 'bg-blue-600 text-white shadow-sm'
+                                : 'bg-white text-gray-600 hover:bg-gray-50'
                                 }`}
                         >
                             Upcoming ({upcoming.length})
@@ -468,8 +644,8 @@ const CandidateInterviewDashboard = () => {
                         <button
                             onClick={() => setActiveTab('history')}
                             className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all ${activeTab === 'history'
-                                    ? 'bg-blue-600 text-white shadow-sm'
-                                    : 'bg-white text-gray-600 hover:bg-gray-50'
+                                ? 'bg-blue-600 text-white shadow-sm'
+                                : 'bg-white text-gray-600 hover:bg-gray-50'
                                 }`}
                         >
                             History ({completed.length})
@@ -529,7 +705,7 @@ const CandidateInterviewDashboard = () => {
                                                 <Calendar className="w-3.5 h-3.5 text-blue-500" />
                                                 <span className="font-medium">
                                                     {interview.mode === 'Wai'
-                                                        ? formatDate(interview?.ended_at || interview?.created_at)
+                                                        ? formatDate(interview?.scheduled_at || interview?.created_at)
                                                         : formatDate(interview?.start_time)}
                                                 </span>
                                             </div>
@@ -537,63 +713,134 @@ const CandidateInterviewDashboard = () => {
                                                 <Clock className="w-3.5 h-3.5 text-green-500" />
                                                 <span>
                                                     {interview.mode === 'Wai'
-                                                        ? interview?.duration_minutes
-                                                        : getDuration(interview.started_at, interview.ended_at)}
+                                                        ? `${interview?.duration_minutes || 30} min`
+                                                        : getDuration(interview.start_time, interview.end_time)}
                                                 </span>
                                             </div>
-                                            {interview.meeting_link && (
-                                                <a
-                                                    href={interview.meeting_link}
-                                                    target="_blank"
-                                                    rel="noopener noreferrer"
-                                                    className="flex items-center gap-2 text-blue-600 hover:text-blue-700 hover:underline"
-                                                >
-                                                    <Video className="w-3.5 h-3.5" />
-                                                    <span>Join Meeting</span>
-                                                </a>
-                                            )}
                                         </div>
 
-                                        {activeTab === 'upcoming' && ['scheduled', 'pending'].includes(interview.status) && (
-                                            <div className="flex gap-2 pt-2">
-                                                <button
-                                                    onClick={() => handleAccept(interview)}
-                                                    disabled={actionLoading === interview.id}
-                                                    className="flex-1 bg-green-500 text-white py-1.5 rounded-lg text-xs font-semibold hover:bg-green-600 transition-colors disabled:opacity-50 flex items-center justify-center gap-1"
-                                                >
-                                                    {actionLoading === interview.id ? (
-                                                        <Loader2 className="animate-spin h-3 w-3" />
-                                                    ) : (
-                                                        <>
-                                                            <CheckCircle className="w-3 h-3" />
-                                                            Accept
-                                                        </>
-                                                    )}
-                                                </button>
-                                                <button
-                                                    onClick={() => openRescheduleModal(interview)}
-                                                    className="flex-1 bg-blue-500 text-white py-1.5 rounded-lg text-xs font-semibold hover:bg-blue-600 transition-colors flex items-center justify-center gap-1"
-                                                >
-                                                    <RefreshCw className="w-3 h-3" />
-                                                    Reschedule
-                                                </button>
-                                                <button
-                                                    onClick={() => handleReject(interview)}
-                                                    disabled={actionLoading === interview.id}
-                                                    className="flex-1 bg-red-500 text-white py-1.5 rounded-lg text-xs font-semibold hover:bg-red-600 transition-colors disabled:opacity-50 flex items-center justify-center gap-1"
-                                                >
-                                                    {actionLoading === interview.id ? (
-                                                        <Loader2 className="animate-spin h-3 w-3" />
-                                                    ) : (
-                                                        <>
-                                                            <XCircle className="w-3 h-3" />
-                                                            Decline
-                                                        </>
-                                                    )}
-                                                </button>
+                                        {/* Confirmed Status Badge */}
+                                        {interview.status === 'confirmed' && (
+                                            <div className="bg-blue-50 border border-blue-200 rounded-lg p-2">
+                                                <p className="text-xs font-semibold text-blue-800 mb-1 flex items-center gap-1">
+                                                    <CheckCircle className="w-3 h-3" />
+                                                    Interview Confirmed
+                                                </p>
+                                                {interview.mode === 'Wai' ? (
+                                                    <p className="text-xs text-blue-700">
+                                                        Ready to start your AI assessment
+                                                    </p>
+                                                ) : (
+                                                    <p className="text-xs text-blue-700">
+                                                        Scheduled for {formatTime(interview.start_time)}
+                                                    </p>
+                                                )}
                                             </div>
                                         )}
 
+                                        {activeTab === 'upcoming' && (
+                                            <>
+                                                {/* Pending/Scheduled - Accept/Reschedule/Decline */}
+                                                {['scheduled', 'pending'].includes(interview.status) && (
+                                                    <div className="flex gap-2 pt-2">
+                                                        <button
+                                                            onClick={() => handleAccept(interview)}
+                                                            disabled={actionLoading === interview.id}
+                                                            className="flex-1 bg-green-500 text-white py-1.5 rounded-lg text-xs font-semibold hover:bg-green-600 transition-colors disabled:opacity-50 flex items-center justify-center gap-1"
+                                                        >
+                                                            {actionLoading === interview.id ? (
+                                                                <Loader2 className="animate-spin h-3 w-3" />
+                                                            ) : (
+                                                                <>
+                                                                    <CheckCircle className="w-3 h-3" />
+                                                                    Accept
+                                                                </>
+                                                            )}
+                                                        </button>
+                                                        <button
+                                                            onClick={() => openRescheduleModal(interview)}
+                                                            className="flex-1 bg-blue-500 text-white py-1.5 rounded-lg text-xs font-semibold hover:bg-blue-600 transition-colors flex items-center justify-center gap-1"
+                                                        >
+                                                            <RefreshCw className="w-3 h-3" />
+                                                            Reschedule
+                                                        </button>
+                                                        <button
+                                                            onClick={() => handleReject(interview)}
+                                                            disabled={actionLoading === interview.id}
+                                                            className="flex-1 bg-red-500 text-white py-1.5 rounded-lg text-xs font-semibold hover:bg-red-600 transition-colors disabled:opacity-50 flex items-center justify-center gap-1"
+                                                        >
+                                                            {actionLoading === interview.id ? (
+                                                                <Loader2 className="animate-spin h-3 w-3" />
+                                                            ) : (
+                                                                <>
+                                                                    <XCircle className="w-3 h-3" />
+                                                                    Decline
+                                                                </>
+                                                            )}
+                                                        </button>
+                                                    </div>
+                                                )}
+
+                                                {/* Confirmed AI Interview - View Details Button */}
+                                                {interview.status === 'confirmed' && interview.mode === 'Wai' && (
+                                                    <button
+                                                        onClick={() => {
+                                                            setDetailsInterview(interview)
+                                                            setShowDetailsModal(true)
+                                                        }}
+                                                        className="w-full bg-gradient-to-r from-purple-600 to-purple-700 text-white py-2.5 rounded-lg text-sm font-bold hover:from-purple-700 hover:to-purple-800 transition-all shadow-md hover:shadow-lg flex items-center justify-center gap-2"
+                                                    >
+                                                        <Bot className="w-4 h-4" />
+                                                        View Details & Start
+                                                    </button>
+                                                )}
+
+                                                {/* Confirmed HR/HM Interview - View Details Button */}
+                                                {interview.status === 'confirmed' && interview.mode !== 'Wai' && (() => {
+                                                    const status = getInterviewStatus(interview)
+                                                    return (
+                                                        <div className="space-y-2">
+                                                            {status.urgent && (
+                                                                <div className="bg-red-50 border border-red-200 rounded-lg p-2 animate-pulse">
+                                                                    <p className="text-xs font-bold text-red-800 text-center flex items-center justify-center gap-1">
+                                                                        <AlertCircle className="w-3 h-3" />
+                                                                        {status.message}
+                                                                    </p>
+                                                                </div>
+                                                            )}
+
+                                                            {status.canStart && interview.meeting_link ? (
+                                                                <a
+                                                                    href={interview.meeting_link}
+                                                                    target="_blank"
+                                                                    rel="noopener noreferrer"
+                                                                    className={`block w-full text-white py-2.5 rounded-lg text-sm font-bold transition-all shadow-md hover:shadow-lg flex items-center justify-center gap-2 ${status.isLive
+                                                                        ? 'bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 animate-pulse'
+                                                                        : 'bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800'
+                                                                        }`}
+                                                                >
+                                                                    <Video className="w-4 h-4" />
+                                                                    {status.isLive ? 'JOIN NOW (LIVE)' : 'Join Meeting'}
+                                                                </a>
+                                                            ) : (
+                                                                <button
+                                                                    onClick={() => {
+                                                                        setDetailsInterview(interview)
+                                                                        setShowDetailsModal(true)
+                                                                    }}
+                                                                    className="w-full bg-gradient-to-r from-blue-600 to-blue-700 text-white py-2.5 rounded-lg text-sm font-bold hover:from-blue-700 hover:to-blue-800 transition-all shadow-md hover:shadow-lg flex items-center justify-center gap-2"
+                                                                >
+                                                                    <Calendar className="w-4 h-4" />
+                                                                    View Details
+                                                                </button>
+                                                            )}
+                                                        </div>
+                                                    )
+                                                })()}
+                                            </>
+                                        )}
+
+                                        {/* Completed Score */}
                                         {interview.status === 'completed' && interview.overall_score !== undefined && (
                                             <div className="bg-green-50 border border-green-200 rounded-lg p-2">
                                                 <p className="text-xs text-green-800 font-semibold">
@@ -610,22 +857,22 @@ const CandidateInterviewDashboard = () => {
             </div>
 
             <style jsx>{`
-                @keyframes slide-in {
-                    from {
-                        transform: translateX(100%);
-                        opacity: 0;
-                    }
-                    to {
-                        transform: translateX(0);
-                        opacity: 1;
-                    }
-                }
+        @keyframes slide-in {
+            from {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
 
-                .animate-slide-in {
-                    animation: slide-in 0.3s ease-out;
-                }
-            `}</style>
-        </div>
+        .animate-slide-in {
+            animation: slide-in 0.3s ease-out;
+        }
+    `}</style>
+        </div >
     )
 }
 

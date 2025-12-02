@@ -5,7 +5,7 @@ import axios from 'axios'
 import { useParams } from "next/navigation";
 import { X, Download, Mail, User, Phone, FileText, CheckCircle, Clock, AlertCircle } from 'lucide-react'
 import { toast } from 'sonner';
-
+import { useRouter } from 'next/navigation';
 
 
 const Page = () => {
@@ -26,6 +26,7 @@ const Page = () => {
         type: "manual-apply"
     });
     const inputRef = useRef(null);
+    const router = useRouter();
 
     const analyzeResume = async () => {
         try {
@@ -119,14 +120,15 @@ const Page = () => {
                 applicant_name: formData.applicant_name,
             });
             console.log('Application submitted successfully:', response.data);
-            // toast.success('Application submitted successfully!');
-            toast.success('Application submitted successfully!')
-
+            toast.success('Application submitted successfully!');
+            router.replace(`/candidate/applications`);
         } catch (error) {
             console.error('Error submitting application:', error);
-            toast.error('Failed to submit application.');
+            toast.error(error.response.data.error || 'Failed to submit application.');
         }
     };
+
+
 
     useEffect(() => {
         if (resumefile?.name) {

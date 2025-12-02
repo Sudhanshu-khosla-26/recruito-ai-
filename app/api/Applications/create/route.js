@@ -3,13 +3,13 @@ import { getAuth } from "firebase-admin/auth";
 import { adminDB } from "@/lib/firebase-admin";
 import { FieldValue } from "firebase-admin/firestore";
 
-
 export async function POST(request) {
     try {
         const session = request.cookies.get("session")?.value;
         if (!session) {
             return NextResponse.json({ error: "No session found" }, { status: 400 });
         }
+
         let decodedUser;
         try {
             decodedUser = await getAuth().verifySessionCookie(session, true);
@@ -17,45 +17,72 @@ export async function POST(request) {
             return NextResponse.json({ error: "Invalid token" }, { status: 403 });
         }
 
-        console.log(decodedUser);
-
         const user = await adminDB.collection("users").doc(decodedUser.uid).get();
         if (!user.exists) {
             return NextResponse.json({ error: "User does not exist" }, { status: 404 });
         }
+
         const decodedUserData = user.data();
-        if (decodedUserData.role != "jobseeker") {
+        if (decodedUserData.role !== "jobseeker") {
             return NextResponse.json({ error: "User role is not valid" }, { status: 403 });
         }
 
-        const { job_id, resume_url, location, jobposition, match_percentage, applicant_phone, analyzed_paramters, applicant_email, applicant_name } = await request.json();
+        const {
+            job_id,
+            resume_url,
+            location,
+            jobposition,
+            match_percentage,
+            applicant_phone,
+            analyzed_paramters,
+            applicant_email,
+            applicant_name
+        } = await request.json();
+
         if (!job_id || !resume_url || !match_percentage || !applicant_phone || !applicant_email || !applicant_name) {
             return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
         }
 
+        // 🔥 Prevent Duplicate Application
+        const existingApplication = await adminDB
+            .collection("applications")
+            .where("job_id", "==", job_id)
+            .where("applicant_email", "==", applicant_email)
+            .get();
 
+        if (!existingApplication.empty) {
+            return NextResponse.json(
+                { error: "You have already applied for this job with this email" },
+                { status: 409 }
+            );
+        }
+
+        // Save New Application
         const applicationData = {
             applicant_id: decodedUser.uid,
-            job_id: job_id,
-            jobposition: jobposition,
-            location: location,
-            resume_url: resume_url,
-            match_percentage: match_percentage,
+            job_id,
+            jobposition,
+            location,
+            resume_url,
+            match_percentage,
             applied_at: FieldValue.serverTimestamp(),
-            applicant_name: applicant_name,
-            applicant_email: applicant_email,
-            applicant_phone: applicant_phone,
+            applicant_name,
+            applicant_email,
+            applicant_phone,
             status: "applied",
             type: "manual-apply",
-            analyzed_paramters: analyzed_paramters,
+            analyzed_paramters,
         };
 
         await adminDB.collection("applications").add(applicationData);
 
-        return NextResponse.json({ message: "Application created successfully", ok: true }, { status: 201 });
+        return NextResponse.json(
+            { message: "Application created successfully", ok: true },
+            { status: 201 }
+        );
 
     } catch (error) {
         console.error("Error creating application:", error);
         return NextResponse.json({ error: "Failed to create application" }, { status: 500 });
     }
-} 
+}
